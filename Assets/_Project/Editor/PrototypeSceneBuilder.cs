@@ -12,9 +12,9 @@ namespace OrangeWorld.EditorTools
     // Generates the playable prototype scene from code so the whole project stays text-diffable and regenerable.
     public static class PrototypeSceneBuilder
     {
-        const string MaterialFolder = "Assets/_Project/Materials";
-        const string PrefabFolder = "Assets/_Project/Prefabs";
-        const string SceneFolder = "Assets/_Project/Scenes";
+        internal const string MaterialFolder = "Assets/_Project/Materials";
+        internal const string PrefabFolder = "Assets/_Project/Prefabs";
+        internal const string SceneFolder = "Assets/_Project/Scenes";
         const string ScenePath = SceneFolder + "/Prototype.unity";
 
         struct PlanetSpec
@@ -38,13 +38,13 @@ namespace OrangeWorld.EditorTools
 
         static readonly Vector3 SpawnPoint = new(0f, 12.05f, 0f);
 
-        class Palette
+        internal class Palette
         {
             public Material Hand, Arm, EyeWhite, Pupil, Blob, Stalk, Metal, Mallet, Rock, ShroomCap, ShroomStalk, Slime;
             public Material[] Candy, Planet;
         }
 
-        [MenuItem("Orange World/2. Build Prototype Scene", priority = 2)]
+        [MenuItem("Orange World/3. Build Prototype Scene", priority = 3)]
         public static void Build()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
@@ -63,7 +63,7 @@ namespace OrangeWorld.EditorTools
             var blobling = BuildBloblingPrefab(palette, bouncy);
             var gunnerBlobling = BuildGunnerBloblingPrefab(palette, bouncy, projectile);
 
-            BuildLightingAndSky(palette);
+            BuildLightingAndSky();
             var keepClear = Planets.Select(_ => new List<Vector3>()).ToArray();
             keepClear[0].Add(Vector3.up);
             BuildPlanets(palette);
@@ -78,7 +78,7 @@ namespace OrangeWorld.EditorTools
             spawner.gunnerPrefab = gunnerBlobling;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            AddSceneToBuild(ScenePath);
+            RegisterScene(ScenePath, isMenu: false);
             Selection.activeGameObject = player;
             Debug.Log($"[Orange World] Built {ScenePath}. Press Play (with Quest Link) or Build And Run to the headset.");
         }
@@ -86,6 +86,14 @@ namespace OrangeWorld.EditorTools
         // ---------- Assets ----------
 
         static Palette CreatePalette()
+        {
+            var palette = CreateBasePalette();
+            palette.Planet = Planets.Select(p => Mat("Planet_" + p.Name.Replace(" ", ""), p.Color, 0.15f)).ToArray();
+            return palette;
+        }
+
+        // Shared with MainMenuSceneBuilder, which needs the same materials but not the per-planet ones above.
+        internal static Palette CreateBasePalette()
         {
             var palette = new Palette
             {
@@ -109,11 +117,10 @@ namespace OrangeWorld.EditorTools
                 new(0.55f, 0.2f, 1f), new(0.3f, 1f, 0.5f), new(1f, 0.45f, 0.1f),
             };
             palette.Candy = candy.Select((c, i) => Mat("Candy" + i, c, 0.6f, i % 3 == 0 ? 0.8f : 0f)).ToArray();
-            palette.Planet = Planets.Select(p => Mat("Planet_" + p.Name.Replace(" ", ""), p.Color, 0.15f)).ToArray();
             return palette;
         }
 
-        static Material Mat(string name, Color color, float smoothness, float emission = 0f)
+        internal static Material Mat(string name, Color color, float smoothness, float emission = 0f)
         {
             string path = $"{MaterialFolder}/{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -137,7 +144,7 @@ namespace OrangeWorld.EditorTools
             return material;
         }
 
-        static PhysicsMaterial PhysicsMat(string name, float friction, float bounce,
+        internal static PhysicsMaterial PhysicsMat(string name, float friction, float bounce,
             PhysicsMaterialCombine frictionCombine, PhysicsMaterialCombine bounceCombine)
         {
             string path = $"{MaterialFolder}/{name}.asset";
@@ -157,7 +164,7 @@ namespace OrangeWorld.EditorTools
             return material;
         }
 
-        static GameObject BuildBloblingPrefab(Palette p, PhysicsMaterial bouncy)
+        internal static GameObject BuildBloblingPrefab(Palette p, PhysicsMaterial bouncy)
         {
             var go = CreateBloblingBase("Blobling", p, bouncy);
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/Blobling.prefab");
@@ -248,7 +255,7 @@ namespace OrangeWorld.EditorTools
 
         // ---------- World ----------
 
-        static void BuildLightingAndSky(Palette p)
+        internal static void BuildLightingAndSky()
         {
             var sun = new GameObject("Weird Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
@@ -495,10 +502,10 @@ namespace OrangeWorld.EditorTools
 
         // ---------- Player ----------
 
-        static GameObject BuildPlayer(Palette p, PhysicsMaterial slippery)
+        internal static GameObject BuildPlayer(Palette p, PhysicsMaterial slippery, bool addVitals = true, Vector3? spawnPosition = null)
         {
             var player = new GameObject("Player");
-            player.transform.SetPositionAndRotation(SpawnPoint, Quaternion.identity);
+            player.transform.SetPositionAndRotation(spawnPosition ?? SpawnPoint, Quaternion.identity);
 
             var body = player.AddComponent<Rigidbody>();
             body.mass = 70f;
@@ -514,12 +521,16 @@ namespace OrangeWorld.EditorTools
 
             player.AddComponent<GravityBody>();
             var walker = player.AddComponent<PlanetWalker>();
-            var health = player.AddComponent<Damageable>();
-            health.isPlayer = true;
-            health.destroyOnDeath = false;
-            health.maxHealth = 100f;
-            health.invulnerableSeconds = 0.75f;
-            var vitals = player.AddComponent<PlayerVitals>();
+            PlayerVitals vitals = null;
+            if (addVitals)
+            {
+                var health = player.AddComponent<Damageable>();
+                health.isPlayer = true;
+                health.destroyOnDeath = false;
+                health.maxHealth = 100f;
+                health.invulnerableSeconds = 0.75f;
+                vitals = player.AddComponent<PlayerVitals>();
+            }
 
             var originGo = new GameObject("XR Origin");
             originGo.transform.SetParent(player.transform, false);
@@ -545,10 +556,13 @@ namespace OrangeWorld.EditorTools
 
             var leftHand = BuildHand(HandGrabber.Side.Left, leftController, walker, cameraGo.transform, p);
             var rightHand = BuildHand(HandGrabber.Side.Right, rightController, walker, cameraGo.transform, p);
-            vitals.handRenderers = leftHand.GetComponentsInChildren<MeshRenderer>()
-                .Concat(rightHand.GetComponentsInChildren<MeshRenderer>())
-                .Cast<Renderer>()
-                .ToArray();
+            if (vitals != null)
+            {
+                vitals.handRenderers = leftHand.GetComponentsInChildren<MeshRenderer>()
+                    .Concat(rightHand.GetComponentsInChildren<MeshRenderer>())
+                    .Cast<Renderer>()
+                    .ToArray();
+            }
 
             var debugRig = player.AddComponent<DesktopDebugRig>();
             debugRig.cameraTransform = cameraGo.transform;
@@ -620,7 +634,7 @@ namespace OrangeWorld.EditorTools
 
         // ---------- Helpers ----------
 
-        static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPosition, Vector3 localScale,
+        internal static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPosition, Vector3 localScale,
             Material material, bool collider = true)
         {
             var go = GameObject.CreatePrimitive(type);
@@ -633,7 +647,7 @@ namespace OrangeWorld.EditorTools
             return go;
         }
 
-        static Transform Eye(Transform parent, Vector3 localPosition, float size, Material iris, Palette p)
+        internal static Transform Eye(Transform parent, Vector3 localPosition, float size, Material iris, Palette p)
         {
             var eye = Prim(PrimitiveType.Sphere, "Eye", parent, localPosition, Vector3.one * size, p.EyeWhite, collider: false);
             eye.AddComponent<LookAtCamera>();
@@ -642,12 +656,16 @@ namespace OrangeWorld.EditorTools
             return eye.transform;
         }
 
-        static Material Pick(Material[] materials) => materials[Random.Range(0, materials.Length)];
+        internal static Material Pick(Material[] materials) => materials[Random.Range(0, materials.Length)];
 
-        static void AddSceneToBuild(string path)
+        // Keeps the main menu first in Build Settings and this scene right after it, however the two
+        // builders happen to be run.
+        internal static void RegisterScene(string path, bool isMenu)
         {
             var scenes = EditorBuildSettings.scenes.Where(s => s.path != path).ToList();
-            scenes.Insert(0, new EditorBuildSettingsScene(path, true));
+            int index = isMenu ? 0 : scenes.Any(s => s.path == MainMenuSceneBuilder.ScenePath) ? 1 : 0;
+            index = Mathf.Min(index, scenes.Count);
+            scenes.Insert(index, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
         }
     }

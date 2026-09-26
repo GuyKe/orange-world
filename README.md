@@ -18,6 +18,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, and a squeaky mallet. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
+| **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
 
@@ -42,15 +43,20 @@ All the art is Unity primitives and procedural placeholder audio, so the prototy
      **Oculus Touch Controller Profile**. Add **Meta Quest Touch Pro/Plus** too if you have those controllers.
    - Optional, for Quest Link: on the **Windows** tab check **OpenXR** and add the same interaction profile.
    - Open **XR Plug-in Management → Project Validation** and click **Fix All**.
-5. **Run `Orange World → 2. Build Prototype Scene`.** This generates `Assets/_Project/Scenes/Prototype.unity`, along with
-   its materials and the Blobling prefab, and adds the scene to Build Settings.
+5. **Run `Orange World → 4. Build All Scenes`** (or the two individually: **2. Build Main Menu Scene** and
+   **3. Build Prototype Scene**). This generates `Assets/_Project/Scenes/MainMenu.unity` and `Prototype.unity`, their
+   materials and prefabs, and adds both to Build Settings with the main menu first.
 6. **Play it.**
-   - On the headset: plug in your Quest, then *File → Build And Run*.
+   - On the headset: plug in your Quest, then *File → Build And Run*. It opens on the main menu.
    - Through Quest Link: press Play in the Editor.
    - Without a headset: press Play and use the desktop controls below.
 
-You can re-run step 5 whenever you like. It regenerates the scene from code, so any hand edits to the scene are lost.
-Once you start laying out levels by hand, stop re-running it.
+You can re-run step 5 whenever you like. It regenerates both scenes from code, so any hand edits to either scene are
+lost. Once you start laying out levels by hand, stop re-running it.
+
+If the menu's title or PLAY label render backward or invisible from the front, select the `Title`, `Subtitle` or
+`Play Label` object and flip its Y rotation by 180° — that's the one thing in this project I couldn't verify visually
+without a running Editor.
 
 ## Controls
 
@@ -75,8 +81,8 @@ Assets/_Project/
     Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), WaveSpawner, RandomTint
-    World/      JumpPad, LookAtCamera, Orbiter
-  Editor/       QuestProjectSetup, PrototypeSceneBuilder (menu: Orange World)
+    World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button)
+  Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder (menu: Orange World)
 ```
 
 ### How the key pieces fit together
@@ -98,6 +104,11 @@ Assets/_Project/
   `snapLength` it calls `Damageable.Kill()`, which bypasses invulnerability for a guaranteed pop.
 - **Gunner blobs:** `WaveSpawner.gunnerChance` picks the `GunnerBlobling` prefab instead of the plain one. `BlobGun`
   raycasts for line of sight and fires a `Projectile` (the `Glob` prefab) that only damages the player on contact.
+- **Main menu:** `MainMenuSceneBuilder` shares most of its building blocks with `PrototypeSceneBuilder` (same palette,
+  same `BuildPlayer`, same `Blobling` prefab) so the two scenes look and feel like one game. The menu player is built
+  with `addVitals: false`, so it has no `Damageable` and the background blobs can bump into it harmlessly. `MenuButton`
+  is a plain static collider — no XR ray interactor needed — so punching it hard enough (`OnCollisionEnter` +
+  `relativeVelocity`) plays a short press animation and calls `SceneManager.LoadScene("Prototype")`.
 
 ## Tuning cheat sheet
 
@@ -112,6 +123,8 @@ Assets/_Project/
 | Gunner range, fire rate, damage | `BlobGun` on `Prefabs/GunnerBlobling` |
 | How far a blob stretches before it pops | `Stretchable.snapLength` (rest size is `restLength`) |
 | Launch strength between worlds | `JumpPad.launchSpeed` on each Jump Shroom |
+| How hard you must punch the menu button | `MenuButton.minImpactSpeed` on `Play Button` in `MainMenu` |
+| Which scene the menu button loads | `MenuButton.sceneName` |
 
 ## Comfort note
 
