@@ -15,6 +15,31 @@ namespace OrangeWorld.EditorTools
     {
         public static void ConfigureXR()
         {
+            // PlayerUltimate creates its vignette/charge-bar material purely at runtime
+            // (Shader.Find + new Material, no persisted asset), so URP's build-time shader
+            // stripper has nothing telling it that shader is actually used and silently drops
+            // it - exactly the bug that made another Quest project's whole scene render
+            // invisible. Unlit's variant space is small, so unlike Lit this is safe to force
+            // wholesale rather than needing a keep-alive material asset.
+            Debug.Log("[AutoSetup] Ensuring the runtime-only Unlit shader survives build stripping...");
+            var graphicsSettingsObj = AssetDatabase.LoadAssetAtPath<Object>("ProjectSettings/GraphicsSettings.asset");
+            var gso = new SerializedObject(graphicsSettingsObj);
+            var alwaysIncluded = gso.FindProperty("m_AlwaysIncludedShaders");
+            var unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+            bool already = false;
+            for (int i = 0; i < alwaysIncluded.arraySize; i++)
+            {
+                if (alwaysIncluded.GetArrayElementAtIndex(i).objectReferenceValue == unlitShader) { already = true; break; }
+            }
+            if (!already)
+            {
+                alwaysIncluded.InsertArrayElementAtIndex(alwaysIncluded.arraySize);
+                alwaysIncluded.GetArrayElementAtIndex(alwaysIncluded.arraySize - 1).objectReferenceValue = unlitShader;
+                gso.ApplyModifiedProperties();
+                AssetDatabase.SaveAssets();
+                Debug.Log("[AutoSetup] Added always-included shader: Universal Render Pipeline/Unlit");
+            }
+
             Debug.Log("[AutoSetup] Enabling OpenXR loader for Android via XR Plug-in Management...");
             XRGeneralSettingsPerBuildTarget buildTargetSettings = null;
             foreach (var guid in AssetDatabase.FindAssets("t:XRGeneralSettingsPerBuildTarget"))
