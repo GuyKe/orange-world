@@ -511,10 +511,15 @@ namespace OrangeWorld.EditorTools
         static void AddPoseDriver(GameObject go, string positionBinding, string rotationBinding)
         {
             var driver = go.AddComponent<UnityEngine.InputSystem.XR.TrackedPoseDriver>();
-            driver.positionInput = new InputActionProperty(
-                new InputAction(go.name + " Position", binding: positionBinding, expectedControlType: "Vector3"));
-            driver.rotationInput = new InputActionProperty(
-                new InputAction(go.name + " Rotation", binding: rotationBinding, expectedControlType: "Quaternion"));
+            var positionAction = new InputAction(go.name + " Position", binding: positionBinding, expectedControlType: "Vector3");
+            var rotationAction = new InputAction(go.name + " Rotation", binding: rotationBinding, expectedControlType: "Quaternion");
+            driver.positionInput = new InputActionProperty(positionAction);
+            driver.rotationInput = new InputActionProperty(rotationAction);
+            // A loose InputAction (not part of an enabled action map) never reads live device values
+            // until Enable() is called - without this the driver just leaves the transform at its
+            // default local pose, which is why the camera/hands never actually tracked at all.
+            positionAction.Enable();
+            rotationAction.Enable();
         }
 
         static GameObject BuildHand(HandGrabber.Side side, Transform controller, PlanetWalker walker, Transform head, Palette p)
