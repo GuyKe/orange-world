@@ -38,7 +38,7 @@ namespace OrangeWorld
         {
             hand = GetComponent<FloppyHand>();
             string xrHand = side == Side.Left ? "LeftHand" : "RightHand";
-            gripAction = new InputAction("Grip", InputActionType.Button, "<XRController>{" + xrHand + "}/{GripButton}");
+            gripAction = new InputAction("Grip", InputActionType.Button, "<XRController>{" + xrHand + "}/gripButton");
             gripAction.AddBinding(side == Side.Left ? "<Keyboard>/q" : "<Keyboard>/e");
 
             var ownDamager = GetComponent<ImpactDamager>();

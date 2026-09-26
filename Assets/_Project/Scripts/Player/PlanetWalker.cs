@@ -45,16 +45,16 @@ namespace OrangeWorld
             spawnRotation = transform.rotation;
 
             moveAction = new InputAction("Move", InputActionType.Value, expectedControlType: "Vector2");
-            moveAction.AddBinding("<XRController>{LeftHand}/{Primary2DAxis}");
+            moveAction.AddBinding("<XRController>{LeftHand}/primary2DAxis");
             moveAction.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
 
-            turnAction = new InputAction("Turn", InputActionType.Value, "<XRController>{RightHand}/{Primary2DAxis}", expectedControlType: "Vector2");
+            turnAction = new InputAction("Turn", InputActionType.Value, "<XRController>{RightHand}/primary2DAxis", expectedControlType: "Vector2");
 
-            jumpAction = new InputAction("Jump", InputActionType.Button, "<XRController>{RightHand}/{PrimaryButton}");
+            jumpAction = new InputAction("Jump", InputActionType.Button, "<XRController>{RightHand}/primaryButton");
             jumpAction.AddBinding("<Keyboard>/space");
         }
 
