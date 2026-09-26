@@ -26,10 +26,10 @@ namespace OrangeWorld
         public float vignetteDistance = 0.15f;
 
         [Tooltip("Alpha controls how much the charge bar shows through into your view.")]
-        public Color backgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
+        public Color backgroundColor = new(0.3f, 0.14f, 0.02f, 0.35f);
         public Color chargingColor = new(1f, 0.55f, 0.1f, 0.6f);
-        public Color readyColor = new(1f, 1f, 1f, 0.75f);
-        public Color labelColor = new(1f, 1f, 1f, 0.7f);
+        public Color readyColor = new(1f, 0.8f, 0.15f, 0.8f);
+        public Color labelColor = new(1f, 0.65f, 0.2f, 0.7f);
 
         public float Charge { get; private set; }
         public bool Active { get; private set; }
@@ -84,7 +84,7 @@ namespace OrangeWorld
 
         void OnAnyDied(Damageable dead)
         {
-            // Only blobs (Blobling/GunnerBlobling) carry a CreatureBrain, so this can't fire from the player itself.
+            // Only blobs (Blobling/GunnerBlobling/MeleeBlobling) carry a CreatureBrain, so this can't fire from the player itself.
             if (dead.GetComponent<CreatureBrain>() == null) return;
             Charge = Mathf.Min(maxCharge, Charge + chargePerKill);
         }

@@ -41,6 +41,24 @@ namespace OrangeWorld.EditorTools
         const float ShopPlatformRadius = 6f;
         static readonly Vector3 ShopPosition = new(0f, -80f, 0f);
 
+        struct BossSpec
+        {
+            public string Name;
+            public Vector3 Position;
+            public float Radius;
+            public Color Color;
+            public int RecommendedLevel;
+            public bool Melee;
+        }
+
+        static readonly BossSpec[] BossPlanets =
+        {
+            new() { Name = "Crimson Titan's Lair", Position = new Vector3(0f, -25f, -68f), Radius = 20f,
+                Color = new Color(0.55f, 0.04f, 0.04f), RecommendedLevel = 5, Melee = true },
+            new() { Name = "Void Gunner Fortress", Position = new Vector3(55f, 18f, 48f), Radius = 18f,
+                Color = new Color(0.14f, 0.04f, 0.3f), RecommendedLevel = 9, Melee = false },
+        };
+
         internal class Palette
         {
             public Material Hand, Arm, EyeWhite, Pupil, Blob, Stalk, Metal, Mallet, Rock, ShroomCap, ShroomStalk, Slime;
@@ -65,14 +83,16 @@ namespace OrangeWorld.EditorTools
             var projectile = BuildProjectilePrefab(palette);
             var blobling = BuildBloblingPrefab(palette, bouncy);
             var gunnerBlobling = BuildGunnerBloblingPrefab(palette, bouncy, projectile);
+            var meleeBlobling = BuildMeleeBloblingPrefab(palette, bouncy);
 
             BuildLightingAndSky();
             var keepClear = Planets.Select(_ => new List<Vector3>()).ToArray();
             keepClear[0].Add(Vector3.up);
             BuildPlanets(palette);
-            BuildJumpPads(palette, keepClear);
+            var jumpShroomParent = BuildJumpPads(palette, keepClear);
             BuildDecor(palette, keepClear);
             BuildSpaceJunk(palette);
+            BuildBossPlanets(palette, meleeBlobling, gunnerBlobling, jumpShroomParent);
             BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
             BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
             BuildBopper(SpawnPoint + new Vector3(1.3f, 0.4f, 0.4f), palette);
@@ -82,6 +102,7 @@ namespace OrangeWorld.EditorTools
             var spawner = new GameObject("Wave Spawner").AddComponent<WaveSpawner>();
             spawner.creaturePrefab = blobling;
             spawner.gunnerPrefab = gunnerBlobling;
+            spawner.meleePrefab = meleeBlobling;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             RegisterScene(ScenePath, isMenu: false);
@@ -187,6 +208,21 @@ namespace OrangeWorld.EditorTools
             return prefab;
         }
 
+        internal static GameObject BuildMeleeBloblingPrefab(Palette p, PhysicsMaterial bouncy)
+        {
+            var go = CreateBloblingBase("Melee Blobling", p, bouncy);
+            AddClub(go, p);
+            go.AddComponent<MeleeBlob>();
+
+            var brain = go.GetComponent<CreatureBrain>();
+            brain.contactDamage = 24f;
+            brain.lungeSpeed = 9f;
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/MeleeBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
         static GameObject CreateBloblingBase(string name, Palette p, PhysicsMaterial bouncy)
         {
             var go = new GameObject(name);
@@ -245,6 +281,19 @@ namespace OrangeWorld.EditorTools
             var blobGun = go.AddComponent<BlobGun>();
             blobGun.projectilePrefab = projectilePrefab;
             blobGun.muzzle = muzzle;
+        }
+
+        static void AddClub(GameObject go, Palette p)
+        {
+            Vector3 armDirection = new(0.4f, -0.1f, 0.9f);
+            var arm = new GameObject("Club Arm").transform;
+            arm.SetParent(go.transform, false);
+            arm.localPosition = armDirection.normalized * 0.4f;
+            arm.localRotation = Quaternion.LookRotation(armDirection.normalized);
+
+            Prim(PrimitiveType.Cylinder, "Club Handle", arm, new Vector3(0f, 0f, 0.18f), new Vector3(0.06f, 0.18f, 0.06f), p.Stalk, collider: false)
+                .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Prim(PrimitiveType.Sphere, "Club Head", arm, new Vector3(0f, 0f, 0.4f), Vector3.one * 0.24f, p.Metal, collider: false);
         }
 
         static GameObject BuildProjectilePrefab(Palette p)
@@ -306,29 +355,38 @@ namespace OrangeWorld.EditorTools
             }
         }
 
-        static void BuildJumpPads(Palette p, List<Vector3>[] keepClear)
+        static Transform BuildJumpPads(Palette p, List<Vector3>[] keepClear)
         {
             var parent = new GameObject("Jump Shrooms").transform;
             foreach (var (from, to) in JumpRoutes)
             {
                 var a = Planets[from];
                 var b = Planets[to];
-                Vector3 direction = (b.Position - a.Position).normalized;
-                float gap = Vector3.Distance(a.Position, b.Position) - a.Radius - b.Radius;
-
-                var pad = new GameObject($"Shroom {a.Name} -> {b.Name}");
-                pad.transform.SetParent(parent, false);
-                pad.transform.SetPositionAndRotation(a.Position + direction * a.Radius, Quaternion.FromToRotation(Vector3.up, direction));
-                Prim(PrimitiveType.Cylinder, "Stalk", pad.transform, new Vector3(0f, 0.15f, 0f), new Vector3(0.35f, 0.15f, 0.35f), p.ShroomStalk, collider: false);
-                Prim(PrimitiveType.Sphere, "Cap", pad.transform, new Vector3(0f, 0.3f, 0f), new Vector3(1.6f, 0.35f, 1.6f), p.ShroomCap, collider: false);
-
-                var trigger = pad.AddComponent<SphereCollider>();
-                trigger.isTrigger = true;
-                trigger.center = new Vector3(0f, 0.6f, 0f);
-                trigger.radius = 0.8f;
-                pad.AddComponent<JumpPad>().launchSpeed = Mathf.Min(26f, 9f + gap * 0.3f);
+                Vector3 direction = BuildJumpPad(parent, a.Position, a.Radius, a.Name, b.Position, b.Radius, b.Name, p);
                 keepClear[from].Add(direction);
             }
+            return parent;
+        }
+
+        // Returns the launch direction (from -> to), so the caller can keep decor clear of the landing spot.
+        static Vector3 BuildJumpPad(Transform parent, Vector3 fromPosition, float fromRadius, string fromName,
+            Vector3 toPosition, float toRadius, string toName, Palette p)
+        {
+            Vector3 direction = (toPosition - fromPosition).normalized;
+            float gap = Vector3.Distance(fromPosition, toPosition) - fromRadius - toRadius;
+
+            var pad = new GameObject($"Shroom {fromName} -> {toName}");
+            pad.transform.SetParent(parent, false);
+            pad.transform.SetPositionAndRotation(fromPosition + direction * fromRadius, Quaternion.FromToRotation(Vector3.up, direction));
+            Prim(PrimitiveType.Cylinder, "Stalk", pad.transform, new Vector3(0f, 0.15f, 0f), new Vector3(0.35f, 0.15f, 0.35f), p.ShroomStalk, collider: false);
+            Prim(PrimitiveType.Sphere, "Cap", pad.transform, new Vector3(0f, 0.3f, 0f), new Vector3(1.6f, 0.35f, 1.6f), p.ShroomCap, collider: false);
+
+            var trigger = pad.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.center = new Vector3(0f, 0.6f, 0f);
+            trigger.radius = 0.8f;
+            pad.AddComponent<JumpPad>().launchSpeed = Mathf.Min(26f, 9f + gap * 0.3f);
+            return direction;
         }
 
         static void BuildDecor(Palette p, List<Vector3>[] keepClear)
@@ -413,6 +471,53 @@ namespace OrangeWorld.EditorTools
                 orbiter.spin = Random.insideUnitSphere * 30f;
             }
             Eye(parent, new Vector3(0f, 70f, -140f), 40f, p.Candy[3], p).name = "The Watcher";
+        }
+
+        // Big, bare arena planets, each connected to Home by its own Jump Shroom and signed with a recommended
+        // level, holding one scaled-up blob (melee or gunner) as the boss. No decor here - just the fight.
+        static void BuildBossPlanets(Palette p, GameObject meleePrefab, GameObject gunnerPrefab, Transform jumpShroomParent)
+        {
+            var home = Planets[0];
+            foreach (var boss in BossPlanets)
+            {
+                var planetMat = Mat("Boss_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.2f, 0.15f);
+                var planet = Prim(PrimitiveType.Sphere, boss.Name, null, boss.Position, Vector3.one * boss.Radius * 2f, planetMat);
+                planet.AddComponent<GravityAttractor>();
+
+                BuildJumpPad(jumpShroomParent, home.Position, home.Radius, home.Name, boss.Position, boss.Radius, boss.Name, p);
+
+                WorldText.Create(boss.Name + " Sign", null, boss.Position + Vector3.up * (boss.Radius + 4f),
+                    new Vector2(6f, 1.6f), 0.6f).text = $"{boss.Name}\nRecommended Level {boss.RecommendedLevel}";
+
+                SpawnBoss(boss, meleePrefab, gunnerPrefab);
+            }
+        }
+
+        static void SpawnBoss(BossSpec boss, GameObject meleePrefab, GameObject gunnerPrefab)
+        {
+            var prefab = boss.Melee ? meleePrefab : gunnerPrefab;
+            float scale = 3f + boss.RecommendedLevel * 0.4f;
+            Vector3 point = boss.Position + Vector3.up * (boss.Radius + scale * 0.5f + 0.1f);
+
+            var instance = Object.Instantiate(prefab, point, Quaternion.identity);
+            instance.name = boss.Name + " Boss";
+            instance.transform.localScale = Vector3.one * scale;
+
+            var body = instance.GetComponent<Rigidbody>();
+            body.mass *= scale * scale * scale;
+
+            var health = instance.GetComponent<Damageable>();
+            health.SetMaxHealth(health.maxHealth * scale * 2.5f);
+
+            var brain = instance.GetComponent<CreatureBrain>();
+            if (brain != null) brain.contactDamage *= 2f;
+
+            // A fixed, imposing color instead of the usual random eye-color tint every other blob gets.
+            var randomTint = instance.GetComponent<RandomTint>();
+            if (randomTint != null) Object.DestroyImmediate(randomTint);
+            var bodyRenderer = instance.transform.Find("Visual/Body")?.GetComponent<Renderer>();
+            if (bodyRenderer != null)
+                bodyRenderer.sharedMaterial = Mat("BossBody_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.6f, 0.35f);
         }
 
         // ---------- Weapons ----------
@@ -616,6 +721,7 @@ namespace OrangeWorld.EditorTools
             PlayerVitals vitals = null;
             PlayerUltimate ultimate = null;
             PlayerBucks bucks = null;
+            PlayerLevel level = null;
             if (addVitals)
             {
                 var health = player.AddComponent<Damageable>();
@@ -626,6 +732,7 @@ namespace OrangeWorld.EditorTools
                 vitals = player.AddComponent<PlayerVitals>();
                 ultimate = player.AddComponent<PlayerUltimate>();
                 bucks = player.AddComponent<PlayerBucks>();
+                level = player.AddComponent<PlayerLevel>();
 
                 if (shopStandPosition.HasValue)
                 {
@@ -659,6 +766,7 @@ namespace OrangeWorld.EditorTools
             if (ultimate != null) ultimate.head = cameraGo.transform;
             if (vitals != null) vitals.head = cameraGo.transform;
             if (bucks != null) bucks.head = cameraGo.transform;
+            if (level != null) level.head = cameraGo.transform;
 
             var leftHand = BuildHand(HandGrabber.Side.Left, leftController, walker, cameraGo.transform, p);
             var rightHand = BuildHand(HandGrabber.Side.Right, rightController, walker, cameraGo.transform, p);

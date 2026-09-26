@@ -14,13 +14,16 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Climb & fling** | Grip on static scenery (trees, planets, crystals) to anchor your hand and pull yourself around, Gorilla Tag–style. Let go mid-pull to fling yourself. |
 | **Jump Shrooms** | Mushroom launch pads that fire you (or anything else) across to a neighboring planetoid. |
 | **Bloblings** | Jiggly, many-eyed blobs that hop toward you and lunge. When one dies it splits into two smaller blobs, until they're too small to split. Grab them and use them as weapons. |
-| **Gunner blobs** | About a quarter of spawned blobs carry a little gun and lob globs at you from range if they have line of sight. They still split and stretch-pop like any other blob. |
+| **Gunner blobs** | About a fifth of spawned blobs carry a little gun and lob globs at you from range if they have line of sight. They still split and stretch-pop like any other blob. |
+| **Melee blobs** | About a fifth of spawned blobs carry a club and hit harder and lunge faster than a normal blobling — the brute of the three types. |
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, a squeaky mallet, a floppy boxing-glove bopper (light, low damage, huge knockback), and a yo-yo whose ball hangs from a spring instead of a rigid chain, so it stretches and snaps back unpredictably. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
-| **Ultimate** | Killing blobs fills a translucent charge bar in the bottom-right of your view, labeled "ULTIMATE" — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
-| **Health bar & Blob Bucks** | A faded, labeled "HEALTH" bar (starts at 100 max) sits bottom-left, mirroring the ultimate charge; a running "Blob Bucks: N" counter sits top-right. Splitting a normal blob is worth 1 Blob Buck, popping a gunner is worth 2. |
+| **Ultimate** | Killing blobs fills a translucent orange charge bar in the bottom-right of your view, labeled "ULTIMATE" — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
+| **Health, Blob Bucks & level** | A faded red "HEALTH" bar (starts at 100 max) sits bottom-left, mirroring the ultimate charge; a yellow "Blob Bucks: N" counter sits top-right; a cyan "LEVEL N" bar sits top-left. Every corner has its own color, so you can tell them apart at a glance without reading. |
+| **Leveling up** | Killing blobs also grants XP, and each level demands more than the last (the requirement compounds ×1.35 per level), so it's a slow climb that never plateaus into "trivial." Every level up grants a small permanent health bonus. Splitting a normal blob is worth 1 Blob Buck / 4 XP, a gunner or melee blob is worth 2 Blob Bucks and 6-7 XP. |
 | **Upgrades shop** | Click B any time to warp to a small shop platform tucked away from the main play area; click B again to warp right back to where you were. Punch the glowing shrine there to spend 25 Blob Bucks on a permanent +10 max health upgrade — as many times as you can afford it. |
+| **Boss planets** | Two big, bare arena planets, each reachable by its own Jump Shroom from Home and signed with a recommended level, hold one giant scaled-up blob apiece — a melee brute and a gunner — with much higher health and damage than their normal-sized kin. Beating one still splits it, so a boss fight ends in a shower of smaller blobs. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
@@ -62,14 +65,14 @@ All world-space text (menu title/button, shop signage, shrine label, Blob Bucks 
 see the result in a headset. If any text still reads backward or invisible after pulling the latest version, select
 that object and flip its Y rotation by 180° as a workaround, then let me know so I can dig into why.
 
-The three head-locked HUD elements are spread one per corner - health bottom-left, ultimate bottom-right, Blob Bucks
-top-right (top-left is free for whatever comes next) - each labeled so it's clear what it is at a glance. If they
-look mispositioned, too close to each other, or clipped at the edge of view in the headset, real VR headsets don't
-use the Camera component's field of view, so I picked comfortable-looking offsets and distances without being able
-to preview them; nudge `PlayerVitals.barOffset`, `PlayerBucks.counterOffset` or `PlayerUltimate.meterOffset` on the
-`Player` object to taste - they all use the same coordinate convention (X right, Y up, Z forward from your eyes) so
-moving one to an empty corner is just changing its sign. These are the things in this project I couldn't verify
-visually without a running Editor.
+The four head-locked HUD elements each get their own corner and color - health (red) bottom-left, ultimate (orange)
+bottom-right, level (cyan) top-left, Blob Bucks (yellow) top-right - each labeled so it's clear what it is at a
+glance without reading closely. If they look mispositioned, too close to each other, or clipped at the edge of view
+in the headset, real VR headsets don't use the Camera component's field of view, so I picked comfortable-looking
+offsets and distances without being able to preview them; nudge `PlayerVitals.barOffset`, `PlayerBucks.counterOffset`,
+`PlayerLevel.barOffset` or `PlayerUltimate.meterOffset` on the `Player` object to taste - they all use the same
+coordinate convention (X right, Y up, Z forward from your eyes) so moving one to a different corner is just flipping
+a sign. These are the things in this project I couldn't verify visually without a running Editor.
 
 ## Controls
 
@@ -84,6 +87,7 @@ visually without a running Editor.
 | Activate ultimate (once charged) | Click both thumbsticks | R |
 | Warp to/from the upgrades shop | Click B | B |
 | Buy a health upgrade | Punch the gold shrine in the shop (needs 25 Blob Bucks) | Same, in-world |
+| Visit a boss | Follow a Jump Shroom from Home to a boss planet's sign | Same, in-world |
 
 ## Project layout
 
@@ -95,10 +99,12 @@ Assets/_Project/
     Gravity/    GravityAttractor (planetoid), GravityBody (anything that falls toward planetoids)
     Player/     PlanetWalker (locomotion + teleport), FloppyHand (spring hands), HandGrabber (grab/climb/fling),
                 ElasticArm (noodle arms), PlayerVitals (health feedback + health bar), PlayerUltimate
-                (charge/buff/HUD), PlayerBucks (currency + counter), ShopTeleport (click B), DesktopDebugRig
+                (charge/buff/HUD), PlayerBucks (currency + counter), PlayerLevel (XP + level bar),
+                ShopTeleport (click B), DesktopDebugRig
     Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
-                Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), WaveSpawner, RandomTint
+                Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), MeleeBlob (marker),
+                WaveSpawner, RandomTint
     World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button),
                 HealthShrine (punchable Blob-Bucks-for-HP upgrade)
   Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder (menu: Orange World)
@@ -121,8 +127,12 @@ Assets/_Project/
   hands pulling opposite ways actually deforms it) and scales its `visual` along the hand-to-hand axis. It disables
   `Jiggle` for that object while held (`Jiggle.ExternalOverride`) so the two don't fight over the same scale. Past
   `snapLength` it calls `Damageable.Kill()`, which bypasses invulnerability for a guaranteed pop.
-- **Gunner blobs:** `WaveSpawner.gunnerChance` picks the `GunnerBlobling` prefab instead of the plain one. `BlobGun`
-  raycasts for line of sight and fires a `Projectile` (the `Glob` prefab) that only damages the player on contact.
+- **Gunner and melee blobs:** `WaveSpawner` rolls one number against `gunnerChance` then `meleeChance` to pick
+  `GunnerBlobling`, `MeleeBlobling`, or the plain `Blobling`. `BlobGun` raycasts for line of sight and fires a
+  `Projectile` (the `Glob` prefab) that only damages the player on contact. `MeleeBlobling` is just the base blob
+  with a club (`PrototypeSceneBuilder.AddClub`) and higher `CreatureBrain.contactDamage`/`lungeSpeed`, plus an empty
+  `MeleeBlob` marker component other systems (`PlayerBucks`, `PlayerLevel`) check for the same way they check for
+  `BlobGun` on a gunner.
 - **Weapons:** the flail and mallet are rigid (a `ConfigurableJoint` chain and a single body); the bopper is just a
   lighter, higher-`knockback` mallet variant. The yo-yo instead connects its ball to its handle with a `SpringJoint`
   (`spring`/`damper`/`minDistance`/`maxDistance`), so it genuinely stretches under load and snaps back, unlike the
@@ -161,6 +171,18 @@ Assets/_Project/
   listens for the B button and calls a new `PlanetWalker.Teleport(position, rotation)` (which `Respawn` now also
   routes through) to warp there, remembering your exact position/rotation so a second click sends you right back -
   no matter which planetoid you were standing on.
+- **Leveling:** `PlayerLevel` listens to the same `Damageable.AnyDied` event as the ultimate and Blob Bucks, adding
+  XP per kill. `XPToNextLevel` is `baseXPToLevel * xpGrowthPerLevel^(Level-1)`, so each level compounds on the last
+  instead of needing a flat amount - level 10 demands roughly 20× the XP level 1 did. A level-up calls
+  `Damageable.AddMaxHealth` (the same permanent-buff method the health shrine uses) for a small stat reward, so
+  leveling is never purely cosmetic.
+- **Boss planets:** `PrototypeSceneBuilder.BossPlanets` is a small array of big, bare planetoids with a recommended
+  level each. `BuildBossPlanets` reuses `BuildJumpPad` (factored out of the regular `BuildJumpPads` loop so both can
+  call it) to connect each one to Home, posts a `WorldText` sign with the recommended level, and calls `SpawnBoss` to
+  drop in one scaled-up melee or gunner blob instance (`localScale` up to ~6.6×, health scaled by `size × 2.5`,
+  `contactDamage` doubled) with a fixed color instead of the usual `RandomTint`, so it reads as a distinct boss
+  rather than a big regular blob. Since it's still the same prefab underneath, killing it still triggers
+  `SplitOnDeath` - a boss fight ends with a shower of smaller blobs.
 
 ## Tuning cheat sheet
 
@@ -171,8 +193,9 @@ Assets/_Project/
 | Planet gravity strength / reach | `GravityAttractor.surfaceGravity`, `influenceRadii` |
 | Enemy count and ramp | `WaveSpawner` in the scene |
 | Blobling aggression | `CreatureBrain` on `Prefabs/Blobling` |
-| How many blobs carry guns | `WaveSpawner.gunnerChance` |
+| How many blobs carry guns / clubs | `WaveSpawner.gunnerChance` / `meleeChance` |
 | Gunner range, fire rate, damage | `BlobGun` on `Prefabs/GunnerBlobling` |
+| Melee blob damage and lunge speed | `CreatureBrain.contactDamage`/`lungeSpeed` on `Prefabs/MeleeBlobling` |
 | How far a blob stretches before it pops | `Stretchable.snapLength` (rest size is `restLength`) |
 | Launch strength between worlds | `JumpPad.launchSpeed` on each Jump Shroom |
 | How hard you must punch the menu button | `MenuButton.minImpactSpeed` on `Play Button` in `MainMenu` |
@@ -184,11 +207,15 @@ Assets/_Project/
 | How many blobs are around at once | `WaveSpawner.startingCount`/`maxCount`/`secondsPerExtraCreature`/`spawnInterval` |
 | Starting/max health, regen | `Damageable.maxHealth` on `Player`, `PlayerVitals.regenDelay`/`regenPerSecond` |
 | How see-through the health bar / Blob Bucks counter are | `PlayerVitals.barBackgroundColor` / `PlayerBucks.backgroundColor`/`textColor` |
-| Blob Bucks per blob type | `PlayerBucks.normalBlobValue`/`gunnerBlobValue` |
+| Blob Bucks per blob type | `PlayerBucks.normalBlobValue`/`gunnerBlobValue`/`meleeBlobValue` |
 | Health upgrade cost and strength | `HealthShrine.cost`/`healthBonus` on `Health Shrine` in the shop |
 | Bopper feel (light, high knockback) | `ImpactDamager` on `Boxing Glove Bopper` |
 | Yo-yo stretchiness | `SpringJoint.spring`/`damper`/`maxDistance` on `Yo-yo Ball` |
 | Where the shop is / how far you warp | `PrototypeSceneBuilder.ShopPosition`/`ShopPlatformRadius` (regenerate the scene after changing) |
+| XP per blob type / how much harder each level gets | `PlayerLevel.xpPerNormalBlob`/`xpPerGunnerBlob`/`xpPerMeleeBlob`, `xpGrowthPerLevel` |
+| Reward for leveling up | `PlayerLevel.bonusHealthPerLevel` |
+| Boss planet position, size, recommended level, or which blob type | `PrototypeSceneBuilder.BossPlanets` (regenerate the scene after changing) |
+| Boss toughness (health/damage/size scaling) | the `scale`/`SetMaxHealth`/`contactDamage` math in `PrototypeSceneBuilder.SpawnBoss` |
 
 ## Comfort note
 

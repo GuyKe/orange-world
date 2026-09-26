@@ -4,19 +4,21 @@ using UnityEngine.UI;
 namespace OrangeWorld
 {
     // Tracks Blob Bucks, earned by killing blobs, and shows the running total as a faded HUD counter.
-    // A normal Blobling is worth less than a GunnerBlobling, distinguished by whether it carries a BlobGun.
+    // A normal Blobling is worth less than a GunnerBlobling or MeleeBlobling, told apart by whether it carries
+    // a BlobGun or a MeleeBlob marker.
     public class PlayerBucks : MonoBehaviour
     {
         public Transform head;
         public int normalBlobValue = 1;
         public int gunnerBlobValue = 2;
+        public int meleeBlobValue = 2;
 
         public Vector2 counterSize = new(0.16f, 0.04f);
         public float counterFontHeight = 0.022f;
         public Vector3 counterOffset = new(0.12f, 0.09f, 0.16f);
         [Tooltip("Alpha controls how much the counter shows through into your view.")]
-        public Color backgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
-        public Color textColor = new(1f, 0.85f, 0.1f, 0.85f);
+        public Color backgroundColor = new(0.3f, 0.28f, 0.02f, 0.35f);
+        public Color textColor = new(1f, 0.92f, 0.15f, 0.9f);
 
         public int Bucks { get; private set; }
 
@@ -29,9 +31,12 @@ namespace OrangeWorld
 
         void OnAnyDied(Damageable dead)
         {
-            // Only blobs (Blobling/GunnerBlobling) carry a CreatureBrain, so this can't fire from the player itself.
+            // Only blobs (Blobling/GunnerBlobling/MeleeBlobling) carry a CreatureBrain, so this can't fire
+            // from the player itself.
             if (dead.GetComponent<CreatureBrain>() == null) return;
-            Bucks += dead.GetComponent<BlobGun>() != null ? gunnerBlobValue : normalBlobValue;
+            Bucks += dead.GetComponent<BlobGun>() != null ? gunnerBlobValue
+                : dead.GetComponent<MeleeBlob>() != null ? meleeBlobValue
+                : normalBlobValue;
             UpdateCounter();
         }
 

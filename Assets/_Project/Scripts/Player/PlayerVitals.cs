@@ -19,8 +19,10 @@ namespace OrangeWorld
         public float barHeight = 0.03f;
         public Vector3 barOffset = new(-0.12f, -0.09f, 0.16f);
         [Tooltip("Alpha controls how much the health bar shows through into your view.")]
-        public Color barBackgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
-        public Color labelColor = new(1f, 1f, 1f, 0.7f);
+        public Color barBackgroundColor = new(0.25f, 0.02f, 0.02f, 0.35f);
+        public Color barLowColor = new(0.5f, 0.02f, 0.02f, 0.6f);
+        public Color barFullColor = new(1f, 0.15f, 0.1f, 0.6f);
+        public Color labelColor = new(1f, 0.3f, 0.25f, 0.7f);
 
         Damageable health;
         PlanetWalker walker;
@@ -86,7 +88,7 @@ namespace OrangeWorld
             HudSprite.Create("Health Bar Background", head, barOffset + Vector3.forward * 0.001f,
                 new Vector2(barWidth, barHeight), barBackgroundColor);
 
-            barFillRenderer = HudSprite.Create("Health Bar Fill", head, barOffset, new Vector2(0f, barHeight), hurtColor);
+            barFillRenderer = HudSprite.Create("Health Bar Fill", head, barOffset, new Vector2(0f, barHeight), barFullColor);
             barFill = barFillRenderer.transform;
 
             var label = WorldText.Create("Health Bar Label", head, barOffset + Vector3.up * 0.035f, new Vector2(barWidth, 0.025f), 0.018f);
@@ -101,10 +103,7 @@ namespace OrangeWorld
             float fraction = Mathf.Clamp01(health.Health / health.maxHealth);
             barFill.localScale = new Vector3(barWidth * fraction, barHeight, 1f);
             barFill.localPosition = barOffset + Vector3.left * (barWidth * (1f - fraction) * 0.5f);
-
-            Color color = Color.Lerp(hurtColor, healthyColor, fraction);
-            color.a = 0.6f;
-            barFillRenderer.color = color;
+            barFillRenderer.color = Color.Lerp(barLowColor, barFullColor, fraction);
         }
     }
 }
