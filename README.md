@@ -18,6 +18,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, and a squeaky mallet. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
+| **Ultimate** | Killing blobs fills a charge bar locked to the corner of your view. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
@@ -55,8 +56,12 @@ You can re-run step 5 whenever you like. It regenerates both scenes from code, s
 lost. Once you start laying out levels by hand, stop re-running it.
 
 If the menu's title or PLAY label render backward or invisible from the front, select the `Title`, `Subtitle` or
-`Play Label` object and flip its Y rotation by 180° — that's the one thing in this project I couldn't verify visually
-without a running Editor.
+`Play Label` object and flip its Y rotation by 180°. The same goes for the ultimate charge bar and vignette corners
+(children of the camera, named `Ultimate Meter Fill`/`Background` and `Ultimate Vignette`) if they look mispositioned
+in the headset — real VR headsets don't use the Camera component's field of view, so I picked comfortable-looking
+offsets and distances without being able to preview them; nudge `PlayerUltimate.meterOffset` or `vignetteCornerOffset`
+on the `Player` object to taste. These are the things in this project I couldn't verify visually without a running
+Editor.
 
 ## Controls
 
@@ -68,6 +73,7 @@ without a running Editor.
 | Grab / climb | Grip (either hand) | Q (left hand) / E (right hand) |
 | Stretch-kill a blob | Grip it with both hands, then pull your hands apart | Q and E on the same blob, then move apart |
 | Swing | Swing your arms | Hold left mouse to windmill your right arm; hold F to punch with your left |
+| Activate ultimate (once charged) | Click both thumbsticks | R |
 
 ## Project layout
 
@@ -77,7 +83,8 @@ Assets/_Project/
     Core/       PhysicsConfig (72 Hz physics), Haptics, Juice (procedural boing sound)
     Gravity/    GravityAttractor (planetoid), GravityBody (anything that falls toward planetoids)
     Player/     PlanetWalker (locomotion), FloppyHand (spring hands), HandGrabber (grab/climb/fling),
-                ElasticArm (noodle arms), PlayerVitals (health feedback), DesktopDebugRig
+                ElasticArm (noodle arms), PlayerVitals (health feedback), PlayerUltimate (charge/buff/HUD),
+                DesktopDebugRig
     Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), WaveSpawner, RandomTint
@@ -109,6 +116,15 @@ Assets/_Project/
   with `addVitals: false`, so it has no `Damageable` and the background blobs can bump into it harmlessly. `MenuButton`
   is a plain static collider — no XR ray interactor needed — so punching it hard enough (`OnCollisionEnter` +
   `relativeVelocity`) plays a short press animation and calls `SceneManager.LoadScene("Prototype")`.
+- **Ultimate:** `Damageable` fires a static `AnyDied` event on every death; `PlayerUltimate` listens and adds charge
+  whenever the dead thing has a `CreatureBrain` (i.e. it's a blob, not a rock or the player). The charge bar and the
+  four vignette corners are built from plain unlit cubes parented to the camera — not URP post-processing — so they
+  don't depend on a `Volume`/`Vignette` setup I have no way to verify without an Editor; they're locked to your view
+  and always render. Activating calls `Damageable.AddMaxHealth` (raises the cap and current health together, and
+  un-does it symmetrically after) and sets `ImpactDamager.GlobalDamageMultiplier`, a static multiplier every hit in
+  the scene reads, so it buffs hands, weapons and thrown creatures alike without touching each one individually.
+  `PlayerUltimate` only exists on the Prototype player (it's added alongside `PlayerVitals`, so the health-less menu
+  player never gets one).
 
 ## Tuning cheat sheet
 
@@ -125,6 +141,9 @@ Assets/_Project/
 | Launch strength between worlds | `JumpPad.launchSpeed` on each Jump Shroom |
 | How hard you must punch the menu button | `MenuButton.minImpactSpeed` on `Play Button` in `MainMenu` |
 | Which scene the menu button loads | `MenuButton.sceneName` |
+| How many kills to charge the ultimate | `PlayerUltimate.maxCharge` / `chargePerKill` |
+| Ultimate strength and length | `PlayerUltimate.bonusHealth`, `damageMultiplier`, `duration` |
+| Charge bar / vignette size and position | `PlayerUltimate.meterOffset`/`meterWidth`/`meterHeight`, `vignetteCornerOffset`/`vignetteQuadSize` |
 
 ## Comfort note
 

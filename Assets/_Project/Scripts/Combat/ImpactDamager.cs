@@ -7,6 +7,9 @@ namespace OrangeWorld
     [RequireComponent(typeof(Rigidbody))]
     public class ImpactDamager : MonoBehaviour
     {
+        // Scales every hit in the scene, e.g. while PlayerUltimate is active. Reset to 1 when it ends.
+        public static float GlobalDamageMultiplier = 1f;
+
         public float minImpactSpeed = 2.5f;
         public float damagePerSpeed = 5f;
         [Tooltip("Extra cartoon knockback on top of real physics, as a velocity change per m/s of impact.")]
@@ -42,7 +45,7 @@ namespace OrangeWorld
             var target = collision.collider.GetComponentInParent<Damageable>();
             if (target == null || target.isPlayer || target == self) return;
 
-            float damage = (speed - minImpactSpeed) * damagePerSpeed * Mathf.Sqrt(body.mass);
+            float damage = (speed - minImpactSpeed) * damagePerSpeed * Mathf.Sqrt(body.mass) * GlobalDamageMultiplier;
             target.TakeDamage(damage, point);
             Juice.Boing(point, Mathf.InverseLerp(minImpactSpeed, minImpactSpeed * 5f, speed));
 

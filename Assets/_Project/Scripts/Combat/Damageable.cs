@@ -17,6 +17,10 @@ namespace OrangeWorld
         public event System.Action<float, Vector3> Damaged;
         public event System.Action<Damageable> Died;
 
+        // Fires for every death in the scene (player included), so systems like PlayerUltimate can react
+        // without every creature needing to know about them.
+        public static event System.Action<Damageable> AnyDied;
+
         MeshRenderer[] flashRenderers;
         Color[] baseColors;
         float flash;
@@ -48,6 +52,14 @@ namespace OrangeWorld
             Health = maxHealth;
         }
 
+        // Raises both the cap and current health by delta (negative to shrink back down), e.g. a temporary
+        // buff. Clamped so current health never exceeds the new cap or drops to zero purely from shrinking.
+        public void AddMaxHealth(float delta)
+        {
+            maxHealth = Mathf.Max(1f, maxHealth + delta);
+            Health = Mathf.Clamp(Health + delta, 1f, maxHealth);
+        }
+
         // Bypasses invulnerability for a guaranteed kill, e.g. stretching a creature past its limit.
         public void Kill(Vector3 point)
         {
@@ -55,6 +67,7 @@ namespace OrangeWorld
             Health = 0f;
             Dead = true;
             Died?.Invoke(this);
+            AnyDied?.Invoke(this);
             if (destroyOnDeath) Destroy(gameObject);
         }
 
@@ -72,6 +85,7 @@ namespace OrangeWorld
             flash = 0f;
             ApplyFlash(0f); // Clones spawned on death copy the current material colors.
             Died?.Invoke(this);
+            AnyDied?.Invoke(this);
             if (destroyOnDeath) Destroy(gameObject);
         }
 

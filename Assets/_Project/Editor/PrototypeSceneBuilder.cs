@@ -522,6 +522,7 @@ namespace OrangeWorld.EditorTools
             player.AddComponent<GravityBody>();
             var walker = player.AddComponent<PlanetWalker>();
             PlayerVitals vitals = null;
+            PlayerUltimate ultimate = null;
             if (addVitals)
             {
                 var health = player.AddComponent<Damageable>();
@@ -530,6 +531,7 @@ namespace OrangeWorld.EditorTools
                 health.maxHealth = 100f;
                 health.invulnerableSeconds = 0.75f;
                 vitals = player.AddComponent<PlayerVitals>();
+                ultimate = player.AddComponent<PlayerUltimate>();
             }
 
             var originGo = new GameObject("XR Origin");
@@ -553,6 +555,7 @@ namespace OrangeWorld.EditorTools
             var leftController = Controller("Left Controller", offset, "LeftHand", -0.2f);
             var rightController = Controller("Right Controller", offset, "RightHand", 0.2f);
             walker.head = cameraGo.transform;
+            if (ultimate != null) ultimate.head = cameraGo.transform;
 
             var leftHand = BuildHand(HandGrabber.Side.Left, leftController, walker, cameraGo.transform, p);
             var rightHand = BuildHand(HandGrabber.Side.Right, rightController, walker, cameraGo.transform, p);
