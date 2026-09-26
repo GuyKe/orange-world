@@ -48,6 +48,16 @@ namespace OrangeWorld
             Health = maxHealth;
         }
 
+        // Bypasses invulnerability for a guaranteed kill, e.g. stretching a creature past its limit.
+        public void Kill(Vector3 point)
+        {
+            if (Dead) return;
+            Health = 0f;
+            Dead = true;
+            Died?.Invoke(this);
+            if (destroyOnDeath) Destroy(gameObject);
+        }
+
         public void TakeDamage(float amount, Vector3 point)
         {
             if (Dead || amount <= 0f || Time.time - LastDamageTime < invulnerableSeconds) return;

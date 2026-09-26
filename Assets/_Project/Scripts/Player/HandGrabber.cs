@@ -20,12 +20,14 @@ namespace OrangeWorld
         public float releaseDistance = 1.5f;
 
         public XRNode Node => side == Side.Left ? XRNode.LeftHand : XRNode.RightHand;
-        public bool Holding => joint != null || anchoredToWorld;
+        public bool Holding => joint != null || anchoredToWorld || stretchTarget != null;
+        public Vector3 HandPosition => hand.Body.position;
 
         FloppyHand hand;
         InputAction gripAction;
         FixedJoint joint;
         ImpactDamager heldDamager;
+        Stretchable stretchTarget;
         Collider[] walkerColliders = new Collider[0];
         readonly List<Collider> ignoredColliders = new();
         readonly Collider[] overlaps = new Collider[16];
@@ -50,6 +52,8 @@ namespace OrangeWorld
 
         void Update()
         {
+            if (stretchTarget != null && stretchTarget.Equals(null)) stretchTarget = null; // popped while held
+
             if (gripAction.WasPressedThisFrame()) Grab();
             else if (gripAction.WasReleasedThisFrame()) Release();
         }
@@ -99,9 +103,16 @@ namespace OrangeWorld
             }
 
             if (best == null) return;
-            if (best.attachedRigidbody != null) Hold(best.attachedRigidbody);
+            var stretchable = best.GetComponentInParent<Stretchable>();
+            if (stretchable != null) Hold(stretchable);
+            else if (best.attachedRigidbody != null) Hold(best.attachedRigidbody);
             else AnchorToWorld();
             Haptics.Pulse(Node, 0.3f, 0.05f);
+        }
+
+        void Hold(Stretchable stretchable)
+        {
+            if (stretchable.TryGrab(this)) stretchTarget = stretchable;
         }
 
         void Hold(Rigidbody body)
@@ -130,6 +141,9 @@ namespace OrangeWorld
             hand.Body.isKinematic = true;
         }
 
+        // Exposed so a stretch target can force both hands to let go the instant it pops.
+        public void ForceRelease() => Release();
+
         void Release()
         {
             if (joint != null) Destroy(joint);
@@ -137,6 +151,12 @@ namespace OrangeWorld
 
             if (heldDamager != null) heldDamager.HapticNode = null;
             heldDamager = null;
+
+            if (stretchTarget != null)
+            {
+                stretchTarget.Release(this);
+                stretchTarget = null;
+            }
 
             foreach (var held in ignoredColliders)
             {

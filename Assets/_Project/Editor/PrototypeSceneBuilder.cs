@@ -40,7 +40,7 @@ namespace OrangeWorld.EditorTools
 
         class Palette
         {
-            public Material Hand, Arm, EyeWhite, Pupil, Blob, Stalk, Metal, Mallet, Rock, ShroomCap, ShroomStalk;
+            public Material Hand, Arm, EyeWhite, Pupil, Blob, Stalk, Metal, Mallet, Rock, ShroomCap, ShroomStalk, Slime;
             public Material[] Candy, Planet;
         }
 
@@ -59,7 +59,9 @@ namespace OrangeWorld.EditorTools
             var palette = CreatePalette();
             var slippery = PhysicsMat("Slippery", 0f, 0f, PhysicsMaterialCombine.Minimum, PhysicsMaterialCombine.Minimum);
             var bouncy = PhysicsMat("Bouncy", 0.4f, 0.7f, PhysicsMaterialCombine.Average, PhysicsMaterialCombine.Maximum);
+            var projectile = BuildProjectilePrefab(palette);
             var blobling = BuildBloblingPrefab(palette, bouncy);
+            var gunnerBlobling = BuildGunnerBloblingPrefab(palette, bouncy, projectile);
 
             BuildLightingAndSky(palette);
             var keepClear = Planets.Select(_ => new List<Vector3>()).ToArray();
@@ -71,7 +73,9 @@ namespace OrangeWorld.EditorTools
             BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
             BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
             var player = BuildPlayer(palette, slippery);
-            new GameObject("Wave Spawner").AddComponent<WaveSpawner>().creaturePrefab = blobling;
+            var spawner = new GameObject("Wave Spawner").AddComponent<WaveSpawner>();
+            spawner.creaturePrefab = blobling;
+            spawner.gunnerPrefab = gunnerBlobling;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddSceneToBuild(ScenePath);
@@ -96,6 +100,7 @@ namespace OrangeWorld.EditorTools
                 Rock = Mat("Rock", new Color(0.35f, 0.3f, 0.45f), 0.1f),
                 ShroomCap = Mat("ShroomCap", new Color(1f, 0.2f, 0.35f), 0.5f, 0.6f),
                 ShroomStalk = Mat("ShroomStalk", new Color(1f, 0.95f, 0.8f), 0.3f),
+                Slime = Mat("Slime", new Color(0.75f, 1f, 0.2f), 0.8f, 0.5f),
             };
 
             Color[] candy =
@@ -154,7 +159,24 @@ namespace OrangeWorld.EditorTools
 
         static GameObject BuildBloblingPrefab(Palette p, PhysicsMaterial bouncy)
         {
-            var go = new GameObject("Blobling");
+            var go = CreateBloblingBase("Blobling", p, bouncy);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/Blobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildGunnerBloblingPrefab(Palette p, PhysicsMaterial bouncy, GameObject projectilePrefab)
+        {
+            var go = CreateBloblingBase("Gunner Blobling", p, bouncy);
+            AddGun(go, p, projectilePrefab);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/GunnerBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject CreateBloblingBase(string name, Palette p, PhysicsMaterial bouncy)
+        {
+            var go = new GameObject(name);
             var body = go.AddComponent<Rigidbody>();
             body.mass = 3f;
             body.angularDamping = 1.5f;
@@ -179,11 +201,47 @@ namespace OrangeWorld.EditorTools
             damager.selfDamageMinSpeed = 8f;
             damager.selfDamagePerSpeed = 4f;
             go.AddComponent<CreatureBrain>();
-            go.AddComponent<Jiggle>().visual = visual;
+            var jiggle = go.AddComponent<Jiggle>();
+            jiggle.visual = visual;
             go.AddComponent<SplitOnDeath>();
             go.AddComponent<RandomTint>().targets = new[] { blob.GetComponent<Renderer>() };
 
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/Blobling.prefab");
+            var stretch = go.AddComponent<Stretchable>();
+            stretch.visual = visual;
+            stretch.restLength = 0.9f;
+            stretch.snapLength = 2.2f;
+
+            return go;
+        }
+
+        static void AddGun(GameObject go, Palette p, GameObject projectilePrefab)
+        {
+            Vector3 gunDirection = new(0.4f, 0.05f, 0.9f);
+            var gun = new GameObject("Gun").transform;
+            gun.SetParent(go.transform, false);
+            gun.localPosition = gunDirection.normalized * 0.45f;
+            gun.localRotation = Quaternion.LookRotation(gunDirection.normalized);
+
+            Prim(PrimitiveType.Cylinder, "Barrel", gun, new Vector3(0f, 0f, 0.22f), new Vector3(0.09f, 0.22f, 0.09f), p.Metal, collider: false)
+                .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+            var muzzle = new GameObject("Muzzle").transform;
+            muzzle.SetParent(gun, false);
+            muzzle.localPosition = new Vector3(0f, 0f, 0.5f);
+
+            var blobGun = go.AddComponent<BlobGun>();
+            blobGun.projectilePrefab = projectilePrefab;
+            blobGun.muzzle = muzzle;
+        }
+
+        static GameObject BuildProjectilePrefab(Palette p)
+        {
+            var go = Prim(PrimitiveType.Sphere, "Glob", null, Vector3.zero, Vector3.one * 0.14f, p.Slime);
+            var body = go.AddComponent<Rigidbody>();
+            body.mass = 0.3f;
+            go.AddComponent<Projectile>();
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/Glob.prefab");
             Object.DestroyImmediate(go);
             return prefab;
         }

@@ -14,6 +14,8 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Climb & fling** | Grip on static scenery (trees, planets, crystals) to anchor your hand and pull yourself around, Gorilla Tag–style. Let go mid-pull to fling yourself. |
 | **Jump Shrooms** | Mushroom launch pads that fire you (or anything else) across to a neighboring planetoid. |
 | **Bloblings** | Jiggly, many-eyed blobs that hop toward you and lunge. When one dies it splits into two smaller blobs, until they're too small to split. Grab them and use them as weapons. |
+| **Gunner blobs** | About a quarter of spawned blobs carry a little gun and lob globs at you from range if they have line of sight. They still split and stretch-pop like any other blob. |
+| **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, and a squeaky mallet. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
 
@@ -58,6 +60,7 @@ Once you start laying out levels by hand, stop re-running it.
 | Snap turn | Right thumbstick | Hold right mouse button and move the mouse to look |
 | Jump | A | Space |
 | Grab / climb | Grip (either hand) | Q (left hand) / E (right hand) |
+| Stretch-kill a blob | Grip it with both hands, then pull your hands apart | Q and E on the same blob, then move apart |
 | Swing | Swing your arms | Hold left mouse to windmill your right arm; hold F to punch with your left |
 
 ## Project layout
@@ -69,9 +72,9 @@ Assets/_Project/
     Gravity/    GravityAttractor (planetoid), GravityBody (anything that falls toward planetoids)
     Player/     PlanetWalker (locomotion), FloppyHand (spring hands), HandGrabber (grab/climb/fling),
                 ElasticArm (noodle arms), PlayerVitals (health feedback), DesktopDebugRig
-    Combat/     Damageable, ImpactDamager (momentum-based damage)
+    Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
-                WaveSpawner, RandomTint
+                Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), WaveSpawner, RandomTint
     World/      JumpPad, LookAtCamera, Orbiter
   Editor/       QuestProjectSetup, PrototypeSceneBuilder (menu: Orange World)
 ```
@@ -88,6 +91,13 @@ Assets/_Project/
   applies it instead of normal movement. The player keeps that velocity after release, which is what makes flinging work.
 - **Damage:** any rigidbody with `ImpactDamager` hurts any `Damageable` it hits hard enough. Creatures also have
   `selfDamageMinSpeed`, so slamming one into the ground hurts it.
+- **Stretch-kill:** `HandGrabber.Grab()` checks for a `Stretchable` on the target before falling back to a normal
+  `FixedJoint` hold. `Stretchable` pulls the body toward each gripping hand with a spring (no rigid joint, so two
+  hands pulling opposite ways actually deforms it) and scales its `visual` along the hand-to-hand axis. It disables
+  `Jiggle` for that object while held (`Jiggle.ExternalOverride`) so the two don't fight over the same scale. Past
+  `snapLength` it calls `Damageable.Kill()`, which bypasses invulnerability for a guaranteed pop.
+- **Gunner blobs:** `WaveSpawner.gunnerChance` picks the `GunnerBlobling` prefab instead of the plain one. `BlobGun`
+  raycasts for line of sight and fires a `Projectile` (the `Glob` prefab) that only damages the player on contact.
 
 ## Tuning cheat sheet
 
@@ -98,6 +108,9 @@ Assets/_Project/
 | Planet gravity strength / reach | `GravityAttractor.surfaceGravity`, `influenceRadii` |
 | Enemy count and ramp | `WaveSpawner` in the scene |
 | Blobling aggression | `CreatureBrain` on `Prefabs/Blobling` |
+| How many blobs carry guns | `WaveSpawner.gunnerChance` |
+| Gunner range, fire rate, damage | `BlobGun` on `Prefabs/GunnerBlobling` |
+| How far a blob stretches before it pops | `Stretchable.snapLength` (rest size is `restLength`) |
 | Launch strength between worlds | `JumpPad.launchSpeed` on each Jump Shroom |
 
 ## Comfort note

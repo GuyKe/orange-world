@@ -6,6 +6,8 @@ namespace OrangeWorld
     public class WaveSpawner : MonoBehaviour
     {
         public GameObject creaturePrefab;
+        public GameObject gunnerPrefab;
+        [Range(0f, 1f)] public float gunnerChance = 0.25f;
         public int startingCount = 4;
         public int maxCount = 18;
         public float secondsPerExtraCreature = 25f;
@@ -32,6 +34,9 @@ namespace OrangeWorld
             var planets = GravityAttractor.All;
             if (planets.Count == 0 || creaturePrefab == null) return;
 
+            bool spawnGunner = gunnerPrefab != null && Random.value < gunnerChance;
+            var prefab = spawnGunner ? gunnerPrefab : creaturePrefab;
+
             for (int attempt = 0; attempt < 6; attempt++)
             {
                 var planet = planets[Random.Range(0, planets.Count)];
@@ -43,7 +48,7 @@ namespace OrangeWorld
                 if (player != null && (point - player.transform.position).sqrMagnitude < minDistanceFromPlayer * minDistanceFromPlayer)
                     continue;
 
-                var creature = Instantiate(creaturePrefab, point, Random.rotation);
+                var creature = Instantiate(prefab, point, Random.rotation);
                 creature.transform.localScale = Vector3.one * size;
                 creature.GetComponent<Rigidbody>().mass *= size * size * size;
                 var health = creature.GetComponent<Damageable>();

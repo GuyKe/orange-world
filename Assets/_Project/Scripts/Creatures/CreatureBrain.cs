@@ -20,6 +20,7 @@ namespace OrangeWorld
         Rigidbody body;
         GravityBody gravity;
         SphereCollider sphere;
+        Stretchable stretchable;
         Transform player;
         float nextHop;
 
@@ -30,6 +31,7 @@ namespace OrangeWorld
             body = GetComponent<Rigidbody>();
             gravity = GetComponent<GravityBody>();
             sphere = GetComponent<SphereCollider>();
+            stretchable = GetComponent<Stretchable>();
         }
 
         void OnEnable() => All.Add(this);
@@ -44,6 +46,7 @@ namespace OrangeWorld
 
         void FixedUpdate()
         {
+            if (stretchable != null && stretchable.IsHeld) return;
             if (Time.time < nextHop || !IsGrounded()) return;
 
             Vector3 up = gravity.Up;

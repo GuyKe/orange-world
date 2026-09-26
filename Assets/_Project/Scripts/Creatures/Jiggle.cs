@@ -14,6 +14,9 @@ namespace OrangeWorld
         public float punchStiffness = 250f;
         public float punchDamping = 9f;
 
+        // While true (e.g. Stretchable is posing the visual for a two-handed stretch hold), this skips its own update.
+        public bool ExternalOverride { get; set; }
+
         Rigidbody body;
         Vector3 baseScale;
         Vector3 stretchAxis = Vector3.up;
@@ -39,6 +42,8 @@ namespace OrangeWorld
 
         void LateUpdate()
         {
+            if (ExternalOverride) return;
+
             float dt = Time.deltaTime;
             punchVelocity += (-punch * punchStiffness - punchVelocity * punchDamping) * dt;
             punch += punchVelocity * dt;
