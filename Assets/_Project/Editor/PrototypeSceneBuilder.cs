@@ -38,6 +38,9 @@ namespace OrangeWorld.EditorTools
 
         static readonly Vector3 SpawnPoint = new(0f, 12.05f, 0f);
 
+        const float ShopPlatformRadius = 6f;
+        static readonly Vector3 ShopPosition = new(0f, -80f, 0f);
+
         internal class Palette
         {
             public Material Hand, Arm, EyeWhite, Pupil, Blob, Stalk, Metal, Mallet, Rock, ShroomCap, ShroomStalk, Slime;
@@ -72,8 +75,10 @@ namespace OrangeWorld.EditorTools
             BuildSpaceJunk(palette);
             BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
             BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
-            BuildHealthShrine(SpawnPoint + new Vector3(0f, 0.3f, -1.4f), palette);
-            var player = BuildPlayer(palette, slippery);
+            BuildBopper(SpawnPoint + new Vector3(1.3f, 0.4f, 0.4f), palette);
+            BuildYoyo(SpawnPoint + new Vector3(-1.3f, 0.9f, 0.4f), palette);
+            var shopStand = BuildShop(palette);
+            var player = BuildPlayer(palette, slippery, shopStandPosition: shopStand);
             var spawner = new GameObject("Wave Spawner").AddComponent<WaveSpawner>();
             spawner.creaturePrefab = blobling;
             spawner.gunnerPrefab = gunnerBlobling;
@@ -473,6 +478,49 @@ namespace OrangeWorld.EditorTools
             head.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         }
 
+        static void BuildBopper(Vector3 position, Palette p)
+        {
+            // A light, floppy boxing-glove club: low mass and low damage per swing, but a big cartoon knockback.
+            var bopper = new GameObject("Boxing Glove Bopper");
+            bopper.transform.position = position;
+            var body = bopper.AddComponent<Rigidbody>();
+            body.mass = 0.8f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            bopper.AddComponent<GravityBody>();
+            var damager = bopper.AddComponent<ImpactDamager>();
+            damager.minImpactSpeed = 2f;
+            damager.damagePerSpeed = 5f;
+            damager.knockback = 0.65f;
+
+            Prim(PrimitiveType.Cylinder, "Handle", bopper.transform, Vector3.zero, new Vector3(0.05f, 0.22f, 0.05f), p.Stalk);
+            Prim(PrimitiveType.Sphere, "Glove", bopper.transform, new Vector3(0f, 0.32f, 0f), new Vector3(0.28f, 0.24f, 0.28f), Pick(p.Candy));
+        }
+
+        static void BuildYoyo(Vector3 position, Palette p)
+        {
+            // A ball on a SpringJoint instead of the flail's rigid chain: it stretches and snaps back, unpredictable.
+            var handle = Part("Yo-yo Handle", null, position, 0.5f);
+            Prim(PrimitiveType.Capsule, "Grip", handle.transform, Vector3.zero, new Vector3(0.06f, 0.18f, 0.06f), p.Mallet);
+
+            var ball = Part("Yo-yo Ball", null, position + Vector3.down * 0.5f, 1.2f);
+            Prim(PrimitiveType.Sphere, "Ball", ball.transform, Vector3.zero, Vector3.one * 0.22f, Pick(p.Candy));
+
+            var spring = ball.gameObject.AddComponent<SpringJoint>();
+            spring.connectedBody = handle;
+            spring.autoConfigureConnectedAnchor = false;
+            spring.anchor = Vector3.zero;
+            spring.connectedAnchor = Vector3.zero;
+            spring.spring = 300f;
+            spring.damper = 8f;
+            spring.minDistance = 0.15f;
+            spring.maxDistance = 0.9f;
+
+            var damager = ball.gameObject.AddComponent<ImpactDamager>();
+            damager.minImpactSpeed = 2f;
+            damager.damagePerSpeed = 8f;
+            damager.knockback = 0.3f;
+        }
+
         static void BuildHealthShrine(Vector3 position, Palette p)
         {
             var gold = Mat("Gold", new Color(1f, 0.85f, 0.1f), 0.7f, 0.5f);
@@ -490,6 +538,29 @@ namespace OrangeWorld.EditorTools
             var spinner = orb.AddComponent<Orbiter>();
             spinner.degreesPerSecond = 0f; // spin in place, not orbit around the world origin
             spinner.spin = new Vector3(0f, 60f, 0f);
+
+            WorldText.Create("Health Shrine Label", shrine.transform, new Vector3(0f, 1.1f, 0f), new Vector2(1.4f, 0.3f), 0.16f).text =
+                "+10 Max HP\n25 Blob Bucks";
+        }
+
+        // A small, out-of-the-way platform only reached by ShopTeleport (click B), so upgrades never clutter
+        // the main play area. Everything here is placed in world space (not parented under the platform sphere),
+        // since that sphere's own scale would otherwise blow up any child sized in local units. Returns where
+        // the player should stand after warping here.
+        static Vector3 BuildShop(Palette p)
+        {
+            var platformMat = Mat("ShopPlatform", new Color(0.3f, 0.3f, 0.4f), 0.2f);
+            var platform = Prim(PrimitiveType.Sphere, "Shop Platform", null,
+                ShopPosition, Vector3.one * ShopPlatformRadius * 2f, platformMat);
+            platform.AddComponent<GravityAttractor>();
+
+            Vector3 standPosition = ShopPosition + Vector3.up * (ShopPlatformRadius + 0.05f);
+            BuildHealthShrine(standPosition + Vector3.forward * 1f, p);
+
+            WorldText.Create("Shop Title", null, standPosition + Vector3.up * 2f + Vector3.forward * 1f,
+                new Vector2(2f, 0.4f), 0.3f).text = "BLOB BUCKS SHOP";
+
+            return standPosition;
         }
 
         static Rigidbody Part(string name, Transform parent, Vector3 position, float mass)
@@ -522,7 +593,8 @@ namespace OrangeWorld.EditorTools
 
         // ---------- Player ----------
 
-        internal static GameObject BuildPlayer(Palette p, PhysicsMaterial slippery, bool addVitals = true, Vector3? spawnPosition = null)
+        internal static GameObject BuildPlayer(Palette p, PhysicsMaterial slippery, bool addVitals = true,
+            Vector3? spawnPosition = null, Vector3? shopStandPosition = null)
         {
             var player = new GameObject("Player");
             player.transform.SetPositionAndRotation(spawnPosition ?? SpawnPoint, Quaternion.identity);
@@ -543,7 +615,7 @@ namespace OrangeWorld.EditorTools
             var walker = player.AddComponent<PlanetWalker>();
             PlayerVitals vitals = null;
             PlayerUltimate ultimate = null;
-            PlayerCoins coins = null;
+            PlayerBucks bucks = null;
             if (addVitals)
             {
                 var health = player.AddComponent<Damageable>();
@@ -553,7 +625,14 @@ namespace OrangeWorld.EditorTools
                 health.invulnerableSeconds = 0.75f;
                 vitals = player.AddComponent<PlayerVitals>();
                 ultimate = player.AddComponent<PlayerUltimate>();
-                coins = player.AddComponent<PlayerCoins>();
+                bucks = player.AddComponent<PlayerBucks>();
+
+                if (shopStandPosition.HasValue)
+                {
+                    var teleport = player.AddComponent<ShopTeleport>();
+                    teleport.walker = walker;
+                    teleport.shopPosition = shopStandPosition.Value;
+                }
             }
 
             var originGo = new GameObject("XR Origin");
@@ -579,7 +658,7 @@ namespace OrangeWorld.EditorTools
             walker.head = cameraGo.transform;
             if (ultimate != null) ultimate.head = cameraGo.transform;
             if (vitals != null) vitals.head = cameraGo.transform;
-            if (coins != null) coins.head = cameraGo.transform;
+            if (bucks != null) bucks.head = cameraGo.transform;
 
             var leftHand = BuildHand(HandGrabber.Side.Left, leftController, walker, cameraGo.transform, p);
             var rightHand = BuildHand(HandGrabber.Side.Right, rightController, walker, cameraGo.transform, p);
