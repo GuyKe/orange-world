@@ -92,7 +92,7 @@ namespace OrangeWorld.EditorTools
             var jumpShroomParent = BuildJumpPads(palette, keepClear);
             BuildDecor(palette, keepClear);
             BuildSpaceJunk(palette);
-            BuildBossPlanets(palette, meleeBlobling, gunnerBlobling, jumpShroomParent);
+            BuildBossPlanets(palette, meleeBlobling, gunnerBlobling, projectile, jumpShroomParent);
             BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
             BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
             BuildBopper(SpawnPoint + new Vector3(1.3f, 0.4f, 0.4f), palette);
@@ -475,7 +475,7 @@ namespace OrangeWorld.EditorTools
 
         // Big, bare arena planets, each connected to Home by its own Jump Shroom and signed with a recommended
         // level, holding one scaled-up blob (melee or gunner) as the boss. No decor here - just the fight.
-        static void BuildBossPlanets(Palette p, GameObject meleePrefab, GameObject gunnerPrefab, Transform jumpShroomParent)
+        static void BuildBossPlanets(Palette p, GameObject meleePrefab, GameObject gunnerPrefab, GameObject projectilePrefab, Transform jumpShroomParent)
         {
             var home = Planets[0];
             foreach (var boss in BossPlanets)
@@ -489,11 +489,11 @@ namespace OrangeWorld.EditorTools
                 WorldText.Create(boss.Name + " Sign", null, boss.Position + Vector3.up * (boss.Radius + 4f),
                     new Vector2(6f, 1.6f), 0.6f).text = $"{boss.Name}\nRecommended Level {boss.RecommendedLevel}";
 
-                SpawnBoss(boss, meleePrefab, gunnerPrefab);
+                SpawnBoss(boss, meleePrefab, gunnerPrefab, projectilePrefab);
             }
         }
 
-        static void SpawnBoss(BossSpec boss, GameObject meleePrefab, GameObject gunnerPrefab)
+        static void SpawnBoss(BossSpec boss, GameObject meleePrefab, GameObject gunnerPrefab, GameObject projectilePrefab)
         {
             var prefab = boss.Melee ? meleePrefab : gunnerPrefab;
             float scale = 3f + boss.RecommendedLevel * 0.4f;
@@ -518,6 +518,26 @@ namespace OrangeWorld.EditorTools
             var bodyRenderer = instance.transform.Find("Visual/Body")?.GetComponent<Renderer>();
             if (bodyRenderer != null)
                 bodyRenderer.sharedMaterial = Mat("BossBody_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.6f, 0.35f);
+
+            instance.AddComponent<BossHealthBar>().bossName = boss.Name;
+
+            var special = instance.AddComponent<BossSpecialAttack>();
+            if (boss.Melee)
+            {
+                special.slamRadius = 2f + scale;
+                special.range = special.slamRadius + 3f;
+                // A single AOE burst as strong as one already-doubled contact hit, spread across the slam radius.
+                special.slamDamage = brain != null ? brain.contactDamage : special.slamDamage;
+            }
+            else
+            {
+                var gun = instance.GetComponent<BlobGun>();
+                special.projectilePrefab = projectilePrefab;
+                special.muzzle = gun != null ? gun.muzzle : instance.transform;
+                special.range = gun != null ? gun.range * 1.4f : special.range;
+                // Total barrage damage lines up with the melee boss's slam, just split across several shots.
+                special.barrageDamagePerShot = gun != null ? gun.damage : special.barrageDamagePerShot;
+            }
         }
 
         // ---------- Weapons ----------
