@@ -13,7 +13,7 @@ namespace OrangeWorld
 
         public Vector2 counterSize = new(0.16f, 0.04f);
         public float counterFontHeight = 0.022f;
-        public Vector3 counterOffset = new(-0.09f, -0.04f, 0.16f);
+        public Vector3 counterOffset = new(0.12f, 0.09f, 0.16f);
         [Tooltip("Alpha controls how much the counter shows through into your view.")]
         public Color backgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
         public Color textColor = new(1f, 0.85f, 0.1f, 0.85f);

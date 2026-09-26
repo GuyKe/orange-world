@@ -18,8 +18,8 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, a squeaky mallet, a floppy boxing-glove bopper (light, low damage, huge knockback), and a yo-yo whose ball hangs from a spring instead of a rigid chain, so it stretches and snaps back unpredictably. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
-| **Ultimate** | Killing blobs fills a translucent charge bar tucked in the corner of your view — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
-| **Health bar & Blob Bucks** | A faded health bar (starts at 100 max) sits in the opposite corner from the ultimate charge, with a running Blob Bucks counter above it. Splitting a normal blob is worth 1 Blob Buck, popping a gunner is worth 2. |
+| **Ultimate** | Killing blobs fills a translucent charge bar in the bottom-right of your view, labeled "ULTIMATE" — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
+| **Health bar & Blob Bucks** | A faded, labeled "HEALTH" bar (starts at 100 max) sits bottom-left, mirroring the ultimate charge; a running "Blob Bucks: N" counter sits top-right. Splitting a normal blob is worth 1 Blob Buck, popping a gunner is worth 2. |
 | **Upgrades shop** | Click B any time to warp to a small shop platform tucked away from the main play area; click B again to warp right back to where you were. Punch the glowing shrine there to spend 25 Blob Bucks on a permanent +10 max health upgrade — as many times as you can afford it. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
@@ -57,14 +57,19 @@ All the art is Unity primitives and procedural placeholder audio, so the prototy
 You can re-run step 5 whenever you like. It regenerates both scenes from code, so any hand edits to either scene are
 lost. Once you start laying out levels by hand, stop re-running it.
 
-If the menu's title, PLAY label, shop title, shrine label or Blob Bucks counter render backward or invisible from
-the front, select that object and flip its Y rotation by 180°. The same goes for the health bar, ultimate charge bar
-and vignette corners (children of the camera, named `Health Bar Fill`/`Background`, `Ultimate Meter Fill`/`Background`
-and `Ultimate Vignette`) if they look mispositioned or overlapping in the headset — real VR headsets don't use the
-Camera component's field of view, so I picked comfortable-looking offsets and distances without being able to
-preview them; nudge `PlayerVitals.barOffset`, `PlayerBucks.counterOffset` or
-`PlayerUltimate.meterOffset`/`vignetteCornerOffset` on the `Player` object to taste. These are the things in this
-project I couldn't verify visually without a running Editor.
+All world-space text (menu title/button, shop signage, shrine label, Blob Bucks counter) previously faced backward -
+`WorldText` had an unnecessary 180° flip baked in, since removing it is what actually fixed it once someone could
+see the result in a headset. If any text still reads backward or invisible after pulling the latest version, select
+that object and flip its Y rotation by 180° as a workaround, then let me know so I can dig into why.
+
+The three head-locked HUD elements are spread one per corner - health bottom-left, ultimate bottom-right, Blob Bucks
+top-right (top-left is free for whatever comes next) - each labeled so it's clear what it is at a glance. If they
+look mispositioned, too close to each other, or clipped at the edge of view in the headset, real VR headsets don't
+use the Camera component's field of view, so I picked comfortable-looking offsets and distances without being able
+to preview them; nudge `PlayerVitals.barOffset`, `PlayerBucks.counterOffset` or `PlayerUltimate.meterOffset` on the
+`Player` object to taste - they all use the same coordinate convention (X right, Y up, Z forward from your eyes) so
+moving one to an empty corner is just changing its sign. These are the things in this project I couldn't verify
+visually without a running Editor.
 
 ## Controls
 
@@ -140,7 +145,7 @@ Assets/_Project/
   out of the box on any pipeline, unlike a mesh + material, so bars can be genuinely see-through without me having
   to get a URP transparent-surface material or a quad's facing direction right blind. `PlayerVitals` and
   `PlayerUltimate` each call it twice (a background track plus a fill that scales/repositions to stay anchored to
-  the track's left edge) and are otherwise independent of each other.
+  the track's left edge), then add a small `WorldText` label just above the bar so it's identifiable at a glance.
 - **Blob Bucks & the health shrine:** `PlayerBucks` listens to the same `Damageable.AnyDied` event as the ultimate,
   and tells a normal `Blobling` from a `GunnerBlobling` by whether it has a `BlobGun` component. Its running total is
   a `WorldText` label (see below) rather than a bar, updated whenever it changes. `HealthShrine` is a punchable
@@ -148,9 +153,9 @@ Assets/_Project/
   `PlayerBucks`/`Damageable` via `HandGrabber.walker`, and calls `Damageable.AddMaxHealth` permanently (no un-do,
   unlike the Ultimate's temporary buff) if `PlayerBucks.TrySpend` succeeds.
 - **World-space text:** `WorldText.Create` builds a small `Canvas` + `Text` label from code (used for the main menu's
-  title/button label, the shop's signage, and the Blob Bucks counter), rotated 180° on Y to face back toward whoever
-  it's placed in front of. It's a runtime-safe utility (no `UnityEditor` calls), so both the editor-time scene
-  builders and `PlayerBucks` at play time can call it.
+  title/button label, the shop's signage, the shrine label, and the Blob Bucks counter), unrotated so it faces along
+  its parent's local +Z. It's a runtime-safe utility (no `UnityEditor` calls), so both the editor-time scene builders
+  and `PlayerBucks`/`PlayerVitals`/`PlayerUltimate` at play time can call it.
 - **Upgrades shop:** `PrototypeSceneBuilder.BuildShop` places a small separate planetoid far from the main play area
   (so gameplay never has to route around it) with its own `GravityAttractor` and a `HealthShrine`. `ShopTeleport`
   listens for the B button and calls a new `PlanetWalker.Teleport(position, rotation)` (which `Respawn` now also
@@ -175,7 +180,7 @@ Assets/_Project/
 | How many kills to charge the ultimate | `PlayerUltimate.maxCharge` / `chargePerKill` |
 | Ultimate strength and length | `PlayerUltimate.bonusHealth`, `damageMultiplier`, `duration` |
 | Charge bar / vignette size and position | `PlayerUltimate.meterOffset`/`meterWidth`/`meterHeight`, `vignetteCornerOffset`/`vignetteQuadSize` |
-| How see-through the charge bar is | `PlayerUltimate.backgroundColor`/`chargingColor`/`readyColor` alpha |
+| How see-through the charge bar / its label are | `PlayerUltimate.backgroundColor`/`chargingColor`/`readyColor`/`labelColor` alpha |
 | How many blobs are around at once | `WaveSpawner.startingCount`/`maxCount`/`secondsPerExtraCreature`/`spawnInterval` |
 | Starting/max health, regen | `Damageable.maxHealth` on `Player`, `PlayerVitals.regenDelay`/`regenPerSecond` |
 | How see-through the health bar / Blob Bucks counter are | `PlayerVitals.barBackgroundColor` / `PlayerBucks.backgroundColor`/`textColor` |

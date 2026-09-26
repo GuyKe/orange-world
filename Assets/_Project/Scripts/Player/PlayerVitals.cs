@@ -17,9 +17,10 @@ namespace OrangeWorld
 
         public float barWidth = 0.12f;
         public float barHeight = 0.03f;
-        public Vector3 barOffset = new(-0.09f, -0.08f, 0.16f);
+        public Vector3 barOffset = new(-0.12f, -0.09f, 0.16f);
         [Tooltip("Alpha controls how much the health bar shows through into your view.")]
         public Color barBackgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
+        public Color labelColor = new(1f, 1f, 1f, 0.7f);
 
         Damageable health;
         PlanetWalker walker;
@@ -87,6 +88,10 @@ namespace OrangeWorld
 
             barFillRenderer = HudSprite.Create("Health Bar Fill", head, barOffset, new Vector2(0f, barHeight), hurtColor);
             barFill = barFillRenderer.transform;
+
+            var label = WorldText.Create("Health Bar Label", head, barOffset + Vector3.up * 0.035f, new Vector2(barWidth, 0.025f), 0.018f);
+            label.text = "HEALTH";
+            label.color = labelColor;
         }
 
         void UpdateHealthBar()

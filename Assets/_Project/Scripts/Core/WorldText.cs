@@ -3,8 +3,8 @@ using UnityEngine.UI;
 
 namespace OrangeWorld
 {
-    // Builds a small world-space UI Text label from code, for a HUD readout or in-world signage. Rotated 180 on
-    // Y so it reads correctly facing back toward whoever it was placed in front of.
+    // Builds a small world-space UI Text label from code, for a HUD readout or in-world signage. Faces along the
+    // parent's local +Z (unrotated), i.e. it reads correctly to someone the object was placed in front of.
     public static class WorldText
     {
         const float CanvasScale = 0.01f;
@@ -14,7 +14,7 @@ namespace OrangeWorld
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPosition;
-            go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            go.transform.localRotation = Quaternion.identity;
             go.transform.localScale = Vector3.one * CanvasScale;
 
             var canvas = go.AddComponent<Canvas>();

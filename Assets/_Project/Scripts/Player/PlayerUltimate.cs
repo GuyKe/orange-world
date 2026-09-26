@@ -19,7 +19,7 @@ namespace OrangeWorld
 
         public float meterWidth = 0.12f;
         public float meterHeight = 0.03f;
-        public Vector3 meterOffset = new(0.09f, -0.08f, 0.16f);
+        public Vector3 meterOffset = new(0.12f, -0.09f, 0.16f);
 
         public float vignetteQuadSize = 0.18f;
         public float vignetteCornerOffset = 0.13f;
@@ -29,6 +29,7 @@ namespace OrangeWorld
         public Color backgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
         public Color chargingColor = new(1f, 0.55f, 0.1f, 0.6f);
         public Color readyColor = new(1f, 1f, 1f, 0.75f);
+        public Color labelColor = new(1f, 1f, 1f, 0.7f);
 
         public float Charge { get; private set; }
         public bool Active { get; private set; }
@@ -133,6 +134,10 @@ namespace OrangeWorld
 
             meterFillRenderer = HudSprite.Create("Ultimate Meter Fill", head, meterOffset, new Vector2(0f, meterHeight), chargingColor);
             meterFill = meterFillRenderer.transform;
+
+            var label = WorldText.Create("Ultimate Meter Label", head, meterOffset + Vector3.up * 0.035f, new Vector2(meterWidth, 0.025f), 0.018f);
+            label.text = "ULTIMATE";
+            label.color = labelColor;
         }
 
         void UpdateMeter()
