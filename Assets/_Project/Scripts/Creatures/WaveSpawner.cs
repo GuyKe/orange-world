@@ -8,10 +8,10 @@ namespace OrangeWorld
         public GameObject creaturePrefab;
         public GameObject gunnerPrefab;
         [Range(0f, 1f)] public float gunnerChance = 0.25f;
-        public int startingCount = 4;
-        public int maxCount = 18;
-        public float secondsPerExtraCreature = 25f;
-        public float spawnInterval = 2.5f;
+        public int startingCount = 8;
+        public int maxCount = 30;
+        public float secondsPerExtraCreature = 15f;
+        public float spawnInterval = 1.5f;
         public float minDistanceFromPlayer = 10f;
         public Vector2 sizeRange = new(0.8f, 1.5f);
         [Range(0f, 1f)] public float homePlanetBias = 0.6f;

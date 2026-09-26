@@ -25,6 +25,11 @@ namespace OrangeWorld
         public float vignetteCornerOffset = 0.13f;
         public float vignetteDistance = 0.15f;
 
+        [Tooltip("Alpha controls how much the charge bar shows through into your view.")]
+        public Color backgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
+        public Color chargingColor = new(1f, 0.55f, 0.1f, 0.6f);
+        public Color readyColor = new(1f, 1f, 1f, 0.75f);
+
         public float Charge { get; private set; }
         public bool Active { get; private set; }
         bool Ready => !Active && Charge >= maxCharge;
@@ -32,12 +37,12 @@ namespace OrangeWorld
         Damageable health;
         InputAction leftClick, rightClick, keyboardActivate;
         Transform meterFill;
-        Material meterFillMaterial;
-        Color chargingColor = new(1f, 0.55f, 0.1f);
-        Color readyColor = Color.white;
+        SpriteRenderer meterFillRenderer;
         Transform[] vignetteQuads;
         float activeUntil;
         float vignetteAmount;
+
+        static Sprite solidSprite;
 
         void Awake()
         {
@@ -92,7 +97,7 @@ namespace OrangeWorld
             bool wantsActivate = (leftClick.IsPressed() && rightClick.IsPressed()) || keyboardActivate.WasPressedThisFrame();
             if (Ready && wantsActivate) Activate();
 
-            UpdateMeter(Time.deltaTime);
+            UpdateMeter();
             UpdateVignette(Time.deltaTime);
         }
 
@@ -120,28 +125,29 @@ namespace OrangeWorld
         }
 
         // ---------- Head-locked HUD ----------
+        // Built from SpriteRenderers rather than lit/unlit mesh materials: sprites alpha-blend correctly out of
+        // the box on every render pipeline, so the meter can be genuinely see-through without depending on URP
+        // transparent-surface material settings I have no way to verify without a running Editor.
 
         void BuildMeter()
         {
             if (head == null) return;
 
-            var background = CreateQuad("Ultimate Meter Background", head, meterOffset,
-                new Vector3(meterWidth, meterHeight, 0.005f), new Color(0.1f, 0.1f, 0.1f));
+            CreateSprite("Ultimate Meter Background", head, meterOffset + Vector3.forward * 0.001f,
+                new Vector2(meterWidth, meterHeight), backgroundColor);
 
-            meterFillMaterial = CreateUnlitMaterial(chargingColor);
-            var fill = CreateQuad("Ultimate Meter Fill", head, meterOffset, new Vector3(0f, meterHeight, 0.004f), meterFillMaterial);
-            meterFill = fill.transform;
-            background.transform.localPosition += Vector3.forward * 0.001f; // sits just behind the fill, no z-fighting
+            meterFillRenderer = CreateSprite("Ultimate Meter Fill", head, meterOffset, new Vector2(0f, meterHeight), chargingColor);
+            meterFill = meterFillRenderer.transform;
         }
 
-        void UpdateMeter(float dt)
+        void UpdateMeter()
         {
             if (meterFill == null) return;
 
             float fraction = Mathf.Clamp01(Charge / maxCharge);
-            meterFill.localScale = new Vector3(meterWidth * fraction, meterHeight, 0.004f);
+            meterFill.localScale = new Vector3(meterWidth * fraction, meterHeight, 1f);
             meterFill.localPosition = meterOffset + Vector3.left * (meterWidth * (1f - fraction) * 0.5f);
-            meterFillMaterial.color = Ready ? readyColor : chargingColor;
+            meterFillRenderer.color = Ready ? readyColor : chargingColor;
         }
 
         void BuildVignette()
@@ -152,16 +158,15 @@ namespace OrangeWorld
             root.SetParent(head, false);
             root.localPosition = Vector3.forward * vignetteDistance;
 
-            var material = CreateUnlitMaterial(Color.black);
             vignetteQuads = new Transform[4];
             Vector2[] corners = { new(-1f, 1f), new(1f, 1f), new(-1f, -1f), new(1f, -1f) };
             for (int i = 0; i < corners.Length; i++)
             {
-                var quad = CreateQuad("Corner " + i, root,
+                var sprite = CreateSprite("Corner " + i, root,
                     new Vector3(corners[i].x * vignetteCornerOffset, corners[i].y * vignetteCornerOffset, 0f),
-                    Vector3.zero, material);
-                quad.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                vignetteQuads[i] = quad.transform;
+                    Vector2.zero, Color.black);
+                sprite.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                vignetteQuads[i] = sprite.transform;
             }
         }
 
@@ -171,30 +176,33 @@ namespace OrangeWorld
 
             float current = vignetteQuads[0].localScale.x / vignetteQuadSize;
             float next = Mathf.MoveTowards(current, vignetteAmount, dt / Mathf.Max(0.01f, transitionSeconds));
-            Vector3 scale = new(vignetteQuadSize * next, vignetteQuadSize * next, 0.01f);
+            Vector3 scale = new(vignetteQuadSize * next, vignetteQuadSize * next, 1f);
             foreach (var quad in vignetteQuads) quad.localScale = scale;
         }
 
-        static GameObject CreateQuad(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Color color)
-            => CreateQuad(name, parent, localPosition, localScale, CreateUnlitMaterial(color));
-
-        static GameObject CreateQuad(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Material material)
+        static SpriteRenderer CreateSprite(string name, Transform parent, Vector3 localPosition, Vector2 size, Color color)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            Destroy(go.GetComponent<Collider>());
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPosition;
-            go.transform.localScale = localScale;
-            go.GetComponent<Renderer>().material = material;
-            return go;
+            go.transform.localScale = new Vector3(size.x, size.y, 1f);
+
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = SolidSprite();
+            renderer.color = color;
+            return renderer;
         }
 
-        static Material CreateUnlitMaterial(Color color)
+        // Sprites render double-sided and alpha-blend by default, unlike a mesh + material, so this sidesteps
+        // both the facing-direction and transparency-setup guesswork of building this out of primitives.
+        static Sprite SolidSprite()
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.color = color;
-            return material;
+            if (solidSprite != null) return solidSprite;
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            solidSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
+            return solidSprite;
         }
     }
 }

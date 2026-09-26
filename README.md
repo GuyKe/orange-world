@@ -18,7 +18,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, and a squeaky mallet. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
-| **Ultimate** | Killing blobs fills a charge bar locked to the corner of your view. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
+| **Ultimate** | Killing blobs fills a translucent charge bar tucked in the corner of your view — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
@@ -118,13 +118,16 @@ Assets/_Project/
   `relativeVelocity`) plays a short press animation and calls `SceneManager.LoadScene("Prototype")`.
 - **Ultimate:** `Damageable` fires a static `AnyDied` event on every death; `PlayerUltimate` listens and adds charge
   whenever the dead thing has a `CreatureBrain` (i.e. it's a blob, not a rock or the player). The charge bar and the
-  four vignette corners are built from plain unlit cubes parented to the camera — not URP post-processing — so they
-  don't depend on a `Volume`/`Vignette` setup I have no way to verify without an Editor; they're locked to your view
-  and always render. Activating calls `Damageable.AddMaxHealth` (raises the cap and current health together, and
-  un-does it symmetrically after) and sets `ImpactDamager.GlobalDamageMultiplier`, a static multiplier every hit in
-  the scene reads, so it buffs hands, weapons and thrown creatures alike without touching each one individually.
-  `PlayerUltimate` only exists on the Prototype player (it's added alongside `PlayerVitals`, so the health-less menu
-  player never gets one).
+  four vignette corners are `SpriteRenderer`s (a 1×1 white pixel, tinted and stretched) parented to the camera rather
+  than mesh quads with a material, and not URP post-processing — sprites alpha-blend and render double-sided
+  correctly out of the box on any pipeline, so the bar is genuinely see-through without me having to get a URP
+  transparent-surface material or a quad's facing direction right blind. The bar itself stays translucent
+  (`backgroundColor`/`chargingColor`/`readyColor` alpha < 1); the vignette stays fully opaque black since the whole
+  point there is to block your view. Activating calls `Damageable.AddMaxHealth` (raises the cap and current health
+  together, and un-does it symmetrically after) and sets `ImpactDamager.GlobalDamageMultiplier`, a static multiplier
+  every hit in the scene reads, so it buffs hands, weapons and thrown creatures alike without touching each one
+  individually. `PlayerUltimate` only exists on the Prototype player (it's added alongside `PlayerVitals`, so the
+  health-less menu player never gets one).
 
 ## Tuning cheat sheet
 
@@ -144,6 +147,8 @@ Assets/_Project/
 | How many kills to charge the ultimate | `PlayerUltimate.maxCharge` / `chargePerKill` |
 | Ultimate strength and length | `PlayerUltimate.bonusHealth`, `damageMultiplier`, `duration` |
 | Charge bar / vignette size and position | `PlayerUltimate.meterOffset`/`meterWidth`/`meterHeight`, `vignetteCornerOffset`/`vignetteQuadSize` |
+| How see-through the charge bar is | `PlayerUltimate.backgroundColor`/`chargingColor`/`readyColor` alpha |
+| How many blobs are around at once | `WaveSpawner.startingCount`/`maxCount`/`secondsPerExtraCreature`/`spawnInterval` |
 
 ## Comfort note
 
