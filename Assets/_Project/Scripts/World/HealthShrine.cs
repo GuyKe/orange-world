@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace OrangeWorld
 {
-    // Punch this with either hand to spend blob coins on a permanent max-health upgrade, if you can afford it.
+    // Punch this with either hand to spend blob bucks on a permanent max-health upgrade, if you can afford it.
     public class HealthShrine : MonoBehaviour
     {
         public int cost = 25;
@@ -19,14 +19,14 @@ namespace OrangeWorld
             var hand = collision.collider.GetComponentInParent<HandGrabber>();
             if (hand == null || hand.walker == null) return;
 
-            var coins = hand.walker.GetComponent<PlayerCoins>();
+            var bucks = hand.walker.GetComponent<PlayerBucks>();
             var health = hand.walker.GetComponent<Damageable>();
-            if (coins == null || health == null) return;
+            if (bucks == null || health == null) return;
 
             nextAllowed = Time.time + cooldownSeconds;
             Vector3 point = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;
 
-            if (coins.TrySpend(cost))
+            if (bucks.TrySpend(cost))
             {
                 health.AddMaxHealth(healthBonus);
                 Haptics.Pulse(hand.Node, 0.8f, 0.2f);

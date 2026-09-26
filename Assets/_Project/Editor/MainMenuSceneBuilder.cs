@@ -1,7 +1,6 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace OrangeWorld.EditorTools
 {
@@ -12,7 +11,6 @@ namespace OrangeWorld.EditorTools
         internal const string ScenePath = PrototypeSceneBuilder.SceneFolder + "/MainMenu.unity";
 
         const float PlatformRadius = 6f;
-        const float CanvasScale = 0.01f;
         static readonly Vector3 PlatformPosition = Vector3.zero;
         static readonly Vector3 SpawnPoint = new(0f, PlatformRadius + 0.05f, 0f);
 
@@ -92,8 +90,8 @@ namespace OrangeWorld.EditorTools
         static void BuildTitle()
         {
             Vector3 basePosition = SpawnPoint + Vector3.forward * 2.6f;
-            BuildWorldText("Title", basePosition + Vector3.up * 1.85f, "ORANGE WORLD", 0.5f, new Vector2(3f, 0.7f));
-            BuildWorldText("Subtitle", basePosition + Vector3.up * 1.35f, "a fever-dream physics RPG", 0.16f, new Vector2(3f, 0.3f));
+            WorldText.Create("Title", null, basePosition + Vector3.up * 1.85f, new Vector2(3f, 0.7f), 0.5f).text = "ORANGE WORLD";
+            WorldText.Create("Subtitle", null, basePosition + Vector3.up * 1.35f, new Vector2(3f, 0.3f), 0.16f).text = "a fever-dream physics RPG";
         }
 
         static void BuildPlayButton(PrototypeSceneBuilder.Palette p)
@@ -102,40 +100,12 @@ namespace OrangeWorld.EditorTools
             var button = PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Play Button", null, position,
                 new Vector3(0.5f, 0.5f, 0.25f), p.Candy[4]);
 
-            var label = BuildWorldText("Play Label", position + Vector3.back * 0.14f, "PLAY", 0.14f, new Vector2(0.6f, 0.25f));
-            label.transform.SetParent(button.transform, true);
+            var label = WorldText.Create("Play Label", button.transform, Vector3.back * 0.14f, new Vector2(0.6f, 0.25f), 0.14f);
+            label.text = "PLAY";
 
             var menuButton = button.AddComponent<MenuButton>();
             menuButton.sceneName = "Prototype";
             menuButton.visual = button.transform;
-        }
-
-        static GameObject BuildWorldText(string name, Vector3 position, string text, float worldFontHeight, Vector2 worldSize)
-        {
-            var go = new GameObject(name);
-            go.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 180f, 0f));
-            go.transform.localScale = Vector3.one * CanvasScale;
-
-            var canvas = go.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            var rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = worldSize / CanvasScale;
-
-            var textGo = new GameObject("Text");
-            textGo.transform.SetParent(go.transform, false);
-            var textRect = textGo.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-
-            var uiText = textGo.AddComponent<Text>();
-            uiText.text = text;
-            uiText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            uiText.fontSize = Mathf.RoundToInt(worldFontHeight / CanvasScale);
-            uiText.alignment = TextAnchor.MiddleCenter;
-            uiText.color = Color.white;
-
-            return go;
         }
     }
 }

@@ -92,10 +92,12 @@ namespace OrangeWorld
             Grounded = false;
         }
 
-        public void Respawn()
+        public void Respawn() => Teleport(spawnPosition, spawnRotation);
+
+        public void Teleport(Vector3 position, Quaternion rotation)
         {
-            Body.position = spawnPosition;
-            Body.rotation = spawnRotation;
+            Body.position = position;
+            Body.rotation = rotation;
             Body.linearVelocity = Vector3.zero;
             timeLost = 0f;
         }
