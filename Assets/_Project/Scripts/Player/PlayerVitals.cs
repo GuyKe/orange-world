@@ -7,6 +7,7 @@ namespace OrangeWorld
     [RequireComponent(typeof(Damageable), typeof(PlanetWalker))]
     public class PlayerVitals : MonoBehaviour
     {
+        public Transform head;
         public Renderer[] handRenderers;
         public Color healthyColor = new(1f, 0.55f, 0.1f);
         public Color hurtColor = new(0.9f, 0.05f, 0.2f);
@@ -14,8 +15,16 @@ namespace OrangeWorld
         public float regenPerSecond = 8f;
         public float hitKnockback = 4f;
 
+        public float barWidth = 0.12f;
+        public float barHeight = 0.03f;
+        public Vector3 barOffset = new(-0.09f, -0.08f, 0.16f);
+        [Tooltip("Alpha controls how much the health bar shows through into your view.")]
+        public Color barBackgroundColor = new(0.05f, 0.05f, 0.05f, 0.35f);
+
         Damageable health;
         PlanetWalker walker;
+        Transform barFill;
+        SpriteRenderer barFillRenderer;
 
         void Awake()
         {
@@ -25,10 +34,16 @@ namespace OrangeWorld
             health.Died += OnDied;
         }
 
-        void Start() => Tint();
+        void Start()
+        {
+            Tint();
+            BuildHealthBar();
+        }
 
         void Update()
         {
+            UpdateHealthBar();
+
             if (health.Dead || health.Health >= health.maxHealth) return;
             if (Time.time - health.LastDamageTime < regenDelay) return;
             health.Heal(regenPerSecond * Time.deltaTime);
@@ -59,6 +74,32 @@ namespace OrangeWorld
             Color color = Color.Lerp(hurtColor, healthyColor, health.Health / health.maxHealth);
             foreach (var r in handRenderers)
                 if (r != null) r.material.color = color;
+        }
+
+        // ---------- Head-locked HUD ----------
+
+        void BuildHealthBar()
+        {
+            if (head == null) return;
+
+            HudSprite.Create("Health Bar Background", head, barOffset + Vector3.forward * 0.001f,
+                new Vector2(barWidth, barHeight), barBackgroundColor);
+
+            barFillRenderer = HudSprite.Create("Health Bar Fill", head, barOffset, new Vector2(0f, barHeight), hurtColor);
+            barFill = barFillRenderer.transform;
+        }
+
+        void UpdateHealthBar()
+        {
+            if (barFill == null) return;
+
+            float fraction = Mathf.Clamp01(health.Health / health.maxHealth);
+            barFill.localScale = new Vector3(barWidth * fraction, barHeight, 1f);
+            barFill.localPosition = barOffset + Vector3.left * (barWidth * (1f - fraction) * 0.5f);
+
+            Color color = Color.Lerp(hurtColor, healthyColor, fraction);
+            color.a = 0.6f;
+            barFillRenderer.color = color;
         }
     }
 }

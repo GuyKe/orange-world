@@ -72,6 +72,7 @@ namespace OrangeWorld.EditorTools
             BuildSpaceJunk(palette);
             BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
             BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
+            BuildHealthShrine(SpawnPoint + new Vector3(0f, 0.3f, -1.4f), palette);
             var player = BuildPlayer(palette, slippery);
             var spawner = new GameObject("Wave Spawner").AddComponent<WaveSpawner>();
             spawner.creaturePrefab = blobling;
@@ -472,6 +473,25 @@ namespace OrangeWorld.EditorTools
             head.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         }
 
+        static void BuildHealthShrine(Vector3 position, Palette p)
+        {
+            var gold = Mat("Gold", new Color(1f, 0.85f, 0.1f), 0.7f, 0.5f);
+
+            var shrine = new GameObject("Health Shrine");
+            shrine.transform.position = position;
+            var collider = shrine.AddComponent<CapsuleCollider>();
+            collider.height = 1f;
+            collider.radius = 0.3f;
+            collider.center = new Vector3(0f, 0.5f, 0f);
+            shrine.AddComponent<HealthShrine>();
+
+            Prim(PrimitiveType.Cylinder, "Pedestal", shrine.transform, new Vector3(0f, 0.25f, 0f), new Vector3(0.3f, 0.25f, 0.3f), p.Metal, collider: false);
+            var orb = Prim(PrimitiveType.Sphere, "Orb", shrine.transform, new Vector3(0f, 0.65f, 0f), Vector3.one * 0.3f, gold, collider: false);
+            var spinner = orb.AddComponent<Orbiter>();
+            spinner.degreesPerSecond = 0f; // spin in place, not orbit around the world origin
+            spinner.spin = new Vector3(0f, 60f, 0f);
+        }
+
         static Rigidbody Part(string name, Transform parent, Vector3 position, float mass)
         {
             var go = new GameObject(name);
@@ -523,6 +543,7 @@ namespace OrangeWorld.EditorTools
             var walker = player.AddComponent<PlanetWalker>();
             PlayerVitals vitals = null;
             PlayerUltimate ultimate = null;
+            PlayerCoins coins = null;
             if (addVitals)
             {
                 var health = player.AddComponent<Damageable>();
@@ -532,6 +553,7 @@ namespace OrangeWorld.EditorTools
                 health.invulnerableSeconds = 0.75f;
                 vitals = player.AddComponent<PlayerVitals>();
                 ultimate = player.AddComponent<PlayerUltimate>();
+                coins = player.AddComponent<PlayerCoins>();
             }
 
             var originGo = new GameObject("XR Origin");
@@ -556,6 +578,8 @@ namespace OrangeWorld.EditorTools
             var rightController = Controller("Right Controller", offset, "RightHand", 0.2f);
             walker.head = cameraGo.transform;
             if (ultimate != null) ultimate.head = cameraGo.transform;
+            if (vitals != null) vitals.head = cameraGo.transform;
+            if (coins != null) coins.head = cameraGo.transform;
 
             var leftHand = BuildHand(HandGrabber.Side.Left, leftController, walker, cameraGo.transform, p);
             var rightHand = BuildHand(HandGrabber.Side.Right, rightController, walker, cameraGo.transform, p);

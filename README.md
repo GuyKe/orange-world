@@ -19,6 +19,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Weapons** | An eyeball flail on a chain of physics links, and a squeaky mallet. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
 | **Ultimate** | Killing blobs fills a translucent charge bar tucked in the corner of your view — faded enough to stay out of your way, not a solid HUD block. Once it's full, click both thumbsticks to unleash it: bonus max health and double damage for 30 seconds, with a black vignette closing in at the edge of your vision while it's active. |
+| **Health bar & blob coins** | A faded health bar (starts at 100 max) sits in the opposite corner from the ultimate charge, with a matching translucent coin bar above it. Splitting a normal blob is worth 1 blob coin, popping a gunner is worth 2. Punch the glowing shrine near spawn to spend 25 coins on a permanent +10 max health upgrade — as many times as you can afford it. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
@@ -56,12 +57,13 @@ You can re-run step 5 whenever you like. It regenerates both scenes from code, s
 lost. Once you start laying out levels by hand, stop re-running it.
 
 If the menu's title or PLAY label render backward or invisible from the front, select the `Title`, `Subtitle` or
-`Play Label` object and flip its Y rotation by 180°. The same goes for the ultimate charge bar and vignette corners
-(children of the camera, named `Ultimate Meter Fill`/`Background` and `Ultimate Vignette`) if they look mispositioned
-in the headset — real VR headsets don't use the Camera component's field of view, so I picked comfortable-looking
-offsets and distances without being able to preview them; nudge `PlayerUltimate.meterOffset` or `vignetteCornerOffset`
-on the `Player` object to taste. These are the things in this project I couldn't verify visually without a running
-Editor.
+`Play Label` object and flip its Y rotation by 180°. The same goes for the health bar, ultimate charge bar, coin bar
+and vignette corners (children of the camera, named `Health Bar Fill`/`Background`, `Ultimate Meter Fill`/`Background`,
+`Coin Bar Fill`/`Background` and `Ultimate Vignette`) if they look mispositioned or overlapping in the headset — real
+VR headsets don't use the Camera component's field of view, so I picked comfortable-looking offsets and distances
+without being able to preview them; nudge `PlayerVitals.barOffset`, `PlayerCoins.barOffset` or
+`PlayerUltimate.meterOffset`/`vignetteCornerOffset` on the `Player` object to taste. These are the things in this
+project I couldn't verify visually without a running Editor.
 
 ## Controls
 
@@ -74,21 +76,23 @@ Editor.
 | Stretch-kill a blob | Grip it with both hands, then pull your hands apart | Q and E on the same blob, then move apart |
 | Swing | Swing your arms | Hold left mouse to windmill your right arm; hold F to punch with your left |
 | Activate ultimate (once charged) | Click both thumbsticks | R |
+| Buy a health upgrade | Punch the gold shrine near spawn (needs 25 blob coins) | Same, in-world |
 
 ## Project layout
 
 ```
 Assets/_Project/
   Scripts/
-    Core/       PhysicsConfig (72 Hz physics), Haptics, Juice (procedural boing sound)
+    Core/       PhysicsConfig (72 Hz physics), Haptics, Juice (procedural boing sound), HudSprite (faded HUD bars)
     Gravity/    GravityAttractor (planetoid), GravityBody (anything that falls toward planetoids)
     Player/     PlanetWalker (locomotion), FloppyHand (spring hands), HandGrabber (grab/climb/fling),
-                ElasticArm (noodle arms), PlayerVitals (health feedback), PlayerUltimate (charge/buff/HUD),
-                DesktopDebugRig
+                ElasticArm (noodle arms), PlayerVitals (health feedback + health bar), PlayerUltimate
+                (charge/buff/HUD), PlayerCoins (blob coins + coin bar), DesktopDebugRig
     Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), WaveSpawner, RandomTint
-    World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button)
+    World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button),
+                HealthShrine (punchable coin-for-HP upgrade)
   Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder (menu: Orange World)
 ```
 
@@ -118,16 +122,23 @@ Assets/_Project/
   `relativeVelocity`) plays a short press animation and calls `SceneManager.LoadScene("Prototype")`.
 - **Ultimate:** `Damageable` fires a static `AnyDied` event on every death; `PlayerUltimate` listens and adds charge
   whenever the dead thing has a `CreatureBrain` (i.e. it's a blob, not a rock or the player). The charge bar and the
-  four vignette corners are `SpriteRenderer`s (a 1×1 white pixel, tinted and stretched) parented to the camera rather
-  than mesh quads with a material, and not URP post-processing — sprites alpha-blend and render double-sided
-  correctly out of the box on any pipeline, so the bar is genuinely see-through without me having to get a URP
-  transparent-surface material or a quad's facing direction right blind. The bar itself stays translucent
-  (`backgroundColor`/`chargingColor`/`readyColor` alpha < 1); the vignette stays fully opaque black since the whole
-  point there is to block your view. Activating calls `Damageable.AddMaxHealth` (raises the cap and current health
-  together, and un-does it symmetrically after) and sets `ImpactDamager.GlobalDamageMultiplier`, a static multiplier
-  every hit in the scene reads, so it buffs hands, weapons and thrown creatures alike without touching each one
-  individually. `PlayerUltimate` only exists on the Prototype player (it's added alongside `PlayerVitals`, so the
-  health-less menu player never gets one).
+  four vignette corners use `HudSprite` (see below); the vignette stays fully opaque black since the whole point
+  there is to block your view, unlike the translucent bars. Activating calls `Damageable.AddMaxHealth` (raises the
+  cap and current health together, and un-does it symmetrically after) and sets `ImpactDamager.GlobalDamageMultiplier`,
+  a static multiplier every hit in the scene reads, so it buffs hands, weapons and thrown creatures alike without
+  touching each one individually. `PlayerUltimate` only exists on the Prototype player (it's added alongside
+  `PlayerVitals`, so the health-less menu player never gets one).
+- **Faded HUD bars:** `HudSprite.Create` is the one place that builds a head-locked bar — a `SpriteRenderer` (a 1×1
+  white pixel, tinted and stretched) parented to the camera. Sprites alpha-blend and render double-sided correctly
+  out of the box on any pipeline, unlike a mesh + material, so bars can be genuinely see-through without me having
+  to get a URP transparent-surface material or a quad's facing direction right blind. `PlayerVitals`, `PlayerCoins`
+  and `PlayerUltimate` each call it twice (a background track plus a fill that scales/repositions to stay anchored
+  to the track's left edge) and are otherwise independent of each other.
+- **Blob coins & health shrine:** `PlayerCoins` listens to the same `Damageable.AnyDied` event as the ultimate, and
+  tells a normal `Blobling` from a `GunnerBlobling` by whether it has a `BlobGun` component. `HealthShrine` is a
+  punchable static collider (same `OnCollisionEnter` + `relativeVelocity` pattern as `MenuButton`) that reaches the
+  puncher's `PlayerCoins`/`Damageable` via `HandGrabber.walker`, and calls `Damageable.AddMaxHealth` permanently
+  (no un-do, unlike the Ultimate's temporary buff) if `PlayerCoins.TrySpend` succeeds.
 
 ## Tuning cheat sheet
 
@@ -149,6 +160,10 @@ Assets/_Project/
 | Charge bar / vignette size and position | `PlayerUltimate.meterOffset`/`meterWidth`/`meterHeight`, `vignetteCornerOffset`/`vignetteQuadSize` |
 | How see-through the charge bar is | `PlayerUltimate.backgroundColor`/`chargingColor`/`readyColor` alpha |
 | How many blobs are around at once | `WaveSpawner.startingCount`/`maxCount`/`secondsPerExtraCreature`/`spawnInterval` |
+| Starting/max health, regen | `Damageable.maxHealth` on `Player`, `PlayerVitals.regenDelay`/`regenPerSecond` |
+| How see-through the health/coin bars are | `PlayerVitals.barBackgroundColor` / `PlayerCoins.barBackgroundColor`/`barFillColor` |
+| Coin value per blob type | `PlayerCoins.normalBlobValue`/`gunnerBlobValue` |
+| Health upgrade cost and strength | `HealthShrine.cost`/`healthBonus` on `Health Shrine` (keep `PlayerCoins.barGoal` matching `cost` so the coin bar reads "full" at the right point) |
 
 ## Comfort note
 

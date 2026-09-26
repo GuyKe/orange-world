@@ -42,8 +42,6 @@ namespace OrangeWorld
         float activeUntil;
         float vignetteAmount;
 
-        static Sprite solidSprite;
-
         void Awake()
         {
             health = GetComponent<Damageable>();
@@ -125,18 +123,15 @@ namespace OrangeWorld
         }
 
         // ---------- Head-locked HUD ----------
-        // Built from SpriteRenderers rather than lit/unlit mesh materials: sprites alpha-blend correctly out of
-        // the box on every render pipeline, so the meter can be genuinely see-through without depending on URP
-        // transparent-surface material settings I have no way to verify without a running Editor.
 
         void BuildMeter()
         {
             if (head == null) return;
 
-            CreateSprite("Ultimate Meter Background", head, meterOffset + Vector3.forward * 0.001f,
+            HudSprite.Create("Ultimate Meter Background", head, meterOffset + Vector3.forward * 0.001f,
                 new Vector2(meterWidth, meterHeight), backgroundColor);
 
-            meterFillRenderer = CreateSprite("Ultimate Meter Fill", head, meterOffset, new Vector2(0f, meterHeight), chargingColor);
+            meterFillRenderer = HudSprite.Create("Ultimate Meter Fill", head, meterOffset, new Vector2(0f, meterHeight), chargingColor);
             meterFill = meterFillRenderer.transform;
         }
 
@@ -162,7 +157,7 @@ namespace OrangeWorld
             Vector2[] corners = { new(-1f, 1f), new(1f, 1f), new(-1f, -1f), new(1f, -1f) };
             for (int i = 0; i < corners.Length; i++)
             {
-                var sprite = CreateSprite("Corner " + i, root,
+                var sprite = HudSprite.Create("Corner " + i, root,
                     new Vector3(corners[i].x * vignetteCornerOffset, corners[i].y * vignetteCornerOffset, 0f),
                     Vector2.zero, Color.black);
                 sprite.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
@@ -178,31 +173,6 @@ namespace OrangeWorld
             float next = Mathf.MoveTowards(current, vignetteAmount, dt / Mathf.Max(0.01f, transitionSeconds));
             Vector3 scale = new(vignetteQuadSize * next, vignetteQuadSize * next, 1f);
             foreach (var quad in vignetteQuads) quad.localScale = scale;
-        }
-
-        static SpriteRenderer CreateSprite(string name, Transform parent, Vector3 localPosition, Vector2 size, Color color)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPosition;
-            go.transform.localScale = new Vector3(size.x, size.y, 1f);
-
-            var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sprite = SolidSprite();
-            renderer.color = color;
-            return renderer;
-        }
-
-        // Sprites render double-sided and alpha-blend by default, unlike a mesh + material, so this sidesteps
-        // both the facing-direction and transparency-setup guesswork of building this out of primitives.
-        static Sprite SolidSprite()
-        {
-            if (solidSprite != null) return solidSprite;
-            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply();
-            solidSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
-            return solidSprite;
         }
     }
 }
