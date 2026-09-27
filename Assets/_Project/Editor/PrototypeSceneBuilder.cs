@@ -305,7 +305,7 @@ namespace OrangeWorld.EditorTools
             var stretch = go.AddComponent<Stretchable>();
             stretch.visual = visual;
             stretch.restLength = 0.9f;
-            stretch.snapLength = 2.2f;
+            stretch.snapLength = 1.6f;
 
             return go;
         }
@@ -409,7 +409,7 @@ namespace OrangeWorld.EditorTools
             var stretch = go.AddComponent<Stretchable>();
             stretch.visual = visual;
             stretch.restLength = 0.8f;
-            stretch.snapLength = 2f;
+            stretch.snapLength = 1.5f;
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/JellyfishBlobling.prefab");
             Object.DestroyImmediate(go);

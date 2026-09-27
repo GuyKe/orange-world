@@ -15,7 +15,7 @@ namespace OrangeWorld
 
         public Side side;
         public PlanetWalker walker;
-        public float grabRadius = 0.12f;
+        public float grabRadius = 0.2f;
         public float breakForce = 6000f;
         public float releaseDistance = 1.5f;
 

@@ -29,6 +29,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Portals** | One pair of weird little rifts — a pulsing glowing core with a ring of jagged shards tumbling and orbiting around it at odd angles — sit near Home and Magenta Lump. Get close and they pull you (or a blob, rock, weapon, anything with physics) in with a swirling vortex force; get close enough and you're launched out of the other one. Just one pair, on purpose, so they're a fun surprise rather than replacing the Jump Shrooms as the main way to get around. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 | **Sandbox** | A SANDBOX button next to PLAY drops you on a big, bare baseplate with no wave spawner or shop — just a row of punchable buttons that summon a normal/gunner/melee blob, a melee or gunner boss, or any of the four weapons, on demand, as many times as you like. A God Mode button makes you unkillable; a Back To Menu button returns you to the main menu, which also turns God Mode off since it's never saved anywhere. |
+| **Purple Mode** | A PURPLE MODE button loads a deliberately empty stub scene — a purple baseplate, a title, the player, and a way back to the main menu. Nothing else lives here on purpose; it's a blank canvas for a future game mode, not a finished feature. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
 
@@ -118,7 +119,8 @@ Assets/_Project/
                 MenuButton (punchable scene-load button), HealthShrine (punchable Blob-Bucks-for-HP upgrade),
                 SandboxButtonBase (punch-and-press base), SandboxSpawnButton (summon a blob/weapon),
                 SandboxBossSummonButton (summon a boss), SandboxGodModeButton (toggle invulnerable)
-  Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder, SandboxSceneBuilder (menu: Orange World)
+  Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder, SandboxSceneBuilder,
+                PurpleModeSceneBuilder (empty stub scene) (menu: Orange World)
 ```
 
 ### How the key pieces fit together
@@ -137,7 +139,9 @@ Assets/_Project/
   `FixedJoint` hold. `Stretchable` pulls the body toward each gripping hand with a spring (no rigid joint, so two
   hands pulling opposite ways actually deforms it) and scales its `visual` along the hand-to-hand axis. It disables
   `Jiggle` for that object while held (`Jiggle.ExternalOverride`) so the two don't fight over the same scale. Past
-  `snapLength` it calls `Damageable.Kill()`, which bypasses invulnerability for a guaranteed pop.
+  `snapLength` it calls `Damageable.Kill()`, which bypasses invulnerability for a guaranteed pop. `HandGrabber.grabRadius`
+  (0.12 → 0.2) and every blob's `snapLength` (2.0-2.2 → 1.5-1.6) were both loosened so grabbing and popping a blob
+  doesn't need such precise VR aim/reach.
 - **Gunner and melee blobs:** `WaveSpawner` rolls one number against `gunnerChance` then `meleeChance` to pick
   `GunnerBlobling`, `MeleeBlobling`, or the plain `Blobling`. `BlobGun` raycasts for line of sight and fires a
   `Projectile` (the `Glob` prefab) that only damages the player on contact. `MeleeBlobling` is just the base blob
@@ -252,6 +256,10 @@ Assets/_Project/
   `suckRadius` teleports it to `linkedPortal`'s position and launches it out along `linkedPortal.transform.up` -
   the same launch convention as `JumpPad`. Both ends get a brief `arrivalCooldown` on that body so it can't
   immediately get sucked straight back in from right next to the exit.
+- **Purple Mode:** `PurpleModeSceneBuilder` follows the exact same scene-generation pattern as every other scene
+  (lighting, a `GravityAttractor` baseplate, `BuildPlayer`, `RegisterScene`) but deliberately builds nothing else -
+  no wave spawner, no summon buttons, no rules. It exists so a future game mode has a real scene, a working player
+  rig, and a menu entry to start from on day one, instead of that setup work being redone from scratch later.
 
 ## Tuning cheat sheet
 
@@ -268,6 +276,7 @@ Assets/_Project/
 | Gunner range, fire rate, damage | `BlobGun` on `Prefabs/GunnerBlobling` |
 | Melee blob damage and lunge speed | `CreatureBrain.contactDamage`/`lungeSpeed` on `Prefabs/MeleeBlobling` |
 | How far a blob stretches before it pops | `Stretchable.snapLength` (rest size is `restLength`) |
+| How generous grabbing anything is | `HandGrabber.grabRadius` |
 | Launch strength between worlds | `JumpPad.launchSpeed` on each Jump Shroom |
 | How hard you must punch the menu button | `MenuButton.minImpactSpeed` on `Play Button` in `MainMenu` |
 | Which scene the menu button loads | `MenuButton.sceneName` |

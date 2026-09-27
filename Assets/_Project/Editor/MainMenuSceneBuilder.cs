@@ -37,6 +37,7 @@ namespace OrangeWorld.EditorTools
             BuildTitle();
             BuildPlayButton(palette);
             BuildSandboxButton(palette);
+            BuildPurpleModeButton();
             var player = PrototypeSceneBuilder.BuildPlayer(palette, slippery, addVitals: false, spawnPosition: SpawnPoint);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -45,12 +46,13 @@ namespace OrangeWorld.EditorTools
             Debug.Log($"[Orange World] Built {ScenePath}. It's now first in Build Settings, so Build And Run opens here.");
         }
 
-        [MenuItem("Orange World/5. Build All Scenes", priority = 5)]
+        [MenuItem("Orange World/6. Build All Scenes", priority = 6)]
         public static void BuildAll()
         {
             Build();
             PrototypeSceneBuilder.Build();
             SandboxSceneBuilder.Build();
+            PurpleModeSceneBuilder.Build();
         }
 
         static void BuildPlatform()
@@ -121,6 +123,22 @@ namespace OrangeWorld.EditorTools
 
             var menuButton = button.AddComponent<MenuButton>();
             menuButton.sceneName = "Sandbox";
+            menuButton.visual = button.transform;
+        }
+
+        // Loads PurpleModeSceneBuilder's scene: a deliberately empty purple stub, not a finished feature.
+        static void BuildPurpleModeButton()
+        {
+            var purple = PrototypeSceneBuilder.Mat("PurpleModeButton", new Color(0.55f, 0.2f, 1f), 0.6f, 0.3f);
+            Vector3 position = SpawnPoint + Vector3.forward * 1.6f + Vector3.left * 0.9f + Vector3.up * 1.1f;
+            var button = PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Purple Mode Button", null, position,
+                new Vector3(0.5f, 0.5f, 0.25f), purple);
+
+            var label = WorldText.Create("Purple Mode Label", button.transform, Vector3.back * 0.14f, new Vector2(0.6f, 0.25f), 0.1f);
+            label.text = "PURPLE\nMODE";
+
+            var menuButton = button.AddComponent<MenuButton>();
+            menuButton.sceneName = "PurpleMode";
             menuButton.visual = button.transform;
         }
     }
