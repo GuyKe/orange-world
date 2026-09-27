@@ -99,6 +99,7 @@ namespace OrangeWorld.EditorTools
             var jumpShroomParent = BuildJumpPads(palette, keepClear);
             BuildDecor(palette, keepClear);
             BuildSpaceJunk(palette);
+            BuildPortals(palette);
             BuildBossPlanets(palette, meleeBossPrefab, gunnerBossPrefab, projectile, jumpShroomParent);
             Object.Instantiate(flailPrefab, SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), Quaternion.identity);
             Object.Instantiate(malletPrefab, SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), Quaternion.identity);
@@ -513,6 +514,64 @@ namespace OrangeWorld.EditorTools
                 orbiter.spin = Random.insideUnitSphere * 30f;
             }
             Eye(parent, new Vector3(0f, 70f, -140f), 40f, p.Candy[3], p).name = "The Watcher";
+        }
+
+        // ---------- Portals ----------
+
+        // A single pair of weird, funky little rifts that suck in anything nearby and spit it out of the other
+        // one - deliberately just one pair, so it stays a fun surprise rather than replacing the Jump Shroom
+        // network as the main way to get around.
+        static void BuildPortals(Palette p)
+        {
+            var home = Planets[0];
+            var magentaLump = Planets[2];
+
+            Vector3 homeDir = new Vector3(-0.7f, 0.45f, -0.6f).normalized;
+            Vector3 lumpDir = new Vector3(-0.2f, 0.9f, 0.4f).normalized;
+
+            var portalA = BuildPortal("Cyan", home.Position + homeDir * (home.Radius + 0.7f), homeDir, p, new Color(0.25f, 1f, 0.9f));
+            var portalB = BuildPortal("Magenta", magentaLump.Position + lumpDir * (magentaLump.Radius + 0.7f), lumpDir, p, new Color(1f, 0.25f, 0.85f));
+
+            var linkA = portalA.GetComponent<Portal>();
+            var linkB = portalB.GetComponent<Portal>();
+            linkA.linkedPortal = linkB;
+            linkB.linkedPortal = linkA;
+        }
+
+        // A pulsing, off-kilter core with a ring of tumbling shards orbiting it at odd angles - primitives only,
+        // but asymmetric and constantly moving so it reads as "alien machine" rather than "regular decoration".
+        static GameObject BuildPortal(string id, Vector3 position, Vector3 outDirection, Palette p, Color tint)
+        {
+            var root = new GameObject(id + " Portal").transform;
+            root.SetPositionAndRotation(position, Quaternion.FromToRotation(Vector3.up, outDirection));
+
+            var coreMat = Mat("Portal" + id + "Core", tint, 0.9f, 1.3f);
+            var core = Prim(PrimitiveType.Sphere, "Core", root, Vector3.zero, Vector3.one * 0.45f, coreMat, collider: false);
+            var coreSpin = core.AddComponent<Orbiter>();
+            coreSpin.degreesPerSecond = 0f; // spin in place, not orbit around the world origin
+            coreSpin.spin = new Vector3(50f, 90f, 30f);
+
+            const int shardCount = 7;
+            for (int i = 0; i < shardCount; i++)
+            {
+                float angle = i * (360f / shardCount) + Random.Range(-12f, 12f);
+                float radius = Random.Range(0.55f, 0.9f);
+                float height = Random.Range(-0.25f, 0.25f);
+                Quaternion around = Quaternion.AngleAxis(angle, Vector3.up);
+
+                var shard = Prim(PrimitiveType.Cube, "Shard", root, around * new Vector3(radius, height, 0f),
+                    new Vector3(0.07f, Random.Range(0.3f, 0.65f), 0.07f), Pick(p.Candy), collider: false);
+                shard.transform.localRotation = around * Quaternion.Euler(Random.Range(-35f, 35f), Random.Range(0f, 360f), Random.Range(-35f, 35f));
+
+                var orbiter = shard.AddComponent<Orbiter>();
+                orbiter.center = position;
+                orbiter.axis = outDirection;
+                orbiter.degreesPerSecond = Random.Range(20f, 55f) * (Random.value < 0.5f ? 1f : -1f);
+                orbiter.spin = new Vector3(Random.Range(30f, 90f), Random.Range(30f, 90f), Random.Range(30f, 90f));
+            }
+
+            root.gameObject.AddComponent<Portal>();
+            return root.gameObject;
         }
 
         // Big, bare arena planets, each connected to Home by its own Jump Shroom and signed with a recommended

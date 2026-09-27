@@ -24,6 +24,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Leveling up** | Killing blobs also grants XP, and each level demands more than the last (the requirement compounds ×1.35 per level), so it's a slow climb that never plateaus into "trivial." Every level up grants a small permanent health bonus. Splitting a normal blob is worth 1 Blob Buck / 4 XP, a gunner or melee blob is worth 2 Blob Bucks and 6-7 XP. |
 | **Upgrades shop** | Click B any time to warp to a small shop platform tucked away from the main play area; click B again to warp right back to where you were. Punch the glowing shrine there to spend 25 Blob Bucks on a permanent +10 max health upgrade — as many times as you can afford it. |
 | **Boss planets** | Two big, bare arena planets, each reachable by its own Jump Shroom from Home and signed with a recommended level, hold one giant scaled-up blob apiece — a melee brute and a gunner — with much higher health and damage than their normal-sized kin. Each boss shows a floating red health bar overhead and, on a cooldown, unleashes a telegraphed special attack: the melee brute winds up and ground-slams everything nearby, the gunner winds up and fires a spreading barrage instead of its usual single shot. A boss just dies outright instead of splitting, and drops a big lump of Blob Bucks and XP, a full ultimate charge, and a floating "DEFEATED!" readout. |
+| **Portals** | One pair of weird little rifts — a pulsing glowing core with a ring of jagged shards tumbling and orbiting around it at odd angles — sit near Home and Magenta Lump. Get close and they pull you (or a blob, rock, weapon, anything with physics) in with a swirling vortex force; get close enough and you're launched out of the other one. Just one pair, on purpose, so they're a fun surprise rather than replacing the Jump Shrooms as the main way to get around. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 | **Sandbox** | A SANDBOX button next to PLAY drops you on a big, bare baseplate with no wave spawner or shop — just a row of punchable buttons that summon a normal/gunner/melee blob, a melee or gunner boss, or any of the four weapons, on demand, as many times as you like. A God Mode button makes you unkillable; a Back To Menu button returns you to the main menu, which also turns God Mode off since it's never saved anywhere. |
 
@@ -110,10 +111,10 @@ Assets/_Project/
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), MeleeBlob (marker),
                 WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack, BossReward,
                 BossConfig (turns an instance into a boss at runtime)
-    World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button),
-                HealthShrine (punchable Blob-Bucks-for-HP upgrade), SandboxButtonBase (punch-and-press base),
-                SandboxSpawnButton (summon a blob/weapon), SandboxBossSummonButton (summon a boss),
-                SandboxGodModeButton (toggle invulnerable)
+    World/      JumpPad, Portal (sucks you in, spits you out its linked partner), LookAtCamera, Orbiter,
+                MenuButton (punchable scene-load button), HealthShrine (punchable Blob-Bucks-for-HP upgrade),
+                SandboxButtonBase (punch-and-press base), SandboxSpawnButton (summon a blob/weapon),
+                SandboxBossSummonButton (summon a boss), SandboxGodModeButton (toggle invulnerable)
   Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder, SandboxSceneBuilder (menu: Orange World)
 ```
 
@@ -225,6 +226,15 @@ Assets/_Project/
   `Damageable.invulnerable` flag, which blocks both `TakeDamage` and `Kill` outright; since nothing in the game
   persists between scenes, leaving for the main menu tears down the player (and the flag with it), so God Mode can
   never leak into a real run.
+- **Portals:** `PrototypeSceneBuilder.BuildPortals` places exactly one linked pair - `BuildPortal` builds each as a
+  spinning emissive `Core` sphere plus a ring of `Shard` cubes, every shard an `Orbiter` set to circle the portal's
+  own world position on its own axis and speed (`RotateAround`, not a parent-child spin) so the whole thing tumbles
+  asymmetrically instead of reading as one rigid prop. The actual pull/suck/eject logic lives in `Portal`: every
+  `FixedUpdate` it runs `Physics.OverlapSphere` for anything with a non-kinematic `Rigidbody` in `pullRadius`, pulls
+  it in (with a little tangential force on top for a swirl, not a straight line), and once something is within
+  `suckRadius` teleports it to `linkedPortal`'s position and launches it out along `linkedPortal.transform.up` -
+  the same launch convention as `JumpPad`. Both ends get a brief `arrivalCooldown` on that body so it can't
+  immediately get sucked straight back in from right next to the exit.
 
 ## Tuning cheat sheet
 
@@ -264,6 +274,9 @@ Assets/_Project/
 | Sandbox baseplate size / where its buttons are | `SandboxSceneBuilder.BaseplateRadius` and the offsets passed to its `Build*Button` calls (regenerate the scene after changing) |
 | How hard you must punch a sandbox button | `SandboxButtonBase.minImpactSpeed` |
 | What a sandbox summon button spawns / where it lands | `SandboxSpawnButton.template`/`spawnPoint`, or `SandboxBossSummonButton`'s fields, on that button in `Sandbox` |
+| Where the portals are / adding more | `PrototypeSceneBuilder.BuildPortals` (regenerate the scene after changing) |
+| Portal pull range/strength, suck distance, eject speed | `Portal.pullRadius`/`pullStrength`/`suckRadius`/`ejectSpeed`/`arrivalCooldown` |
+| Portal look (shard count, colors, spin speeds) | the `shardCount` loop and `Orbiter` setup in `PrototypeSceneBuilder.BuildPortal` |
 
 ## Comfort note
 
