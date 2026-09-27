@@ -7,6 +7,8 @@ namespace OrangeWorld
         public float maxHealth = 30f;
         public bool isPlayer;
         public bool destroyOnDeath = true;
+        [Tooltip("Sandbox god mode: while true, this can't take damage or die.")]
+        public bool invulnerable;
         [Tooltip("Ignores further hits for this long, so one swing's multiple contacts count once.")]
         public float invulnerableSeconds = 0.15f;
 
@@ -60,10 +62,11 @@ namespace OrangeWorld
             Health = Mathf.Clamp(Health + delta, 1f, maxHealth);
         }
 
-        // Bypasses invulnerability for a guaranteed kill, e.g. stretching a creature past its limit.
+        // Bypasses the brief post-hit invulnerability window for a guaranteed kill, e.g. stretching a creature
+        // past its limit - but not sandbox god mode, which blocks death outright.
         public void Kill(Vector3 point)
         {
-            if (Dead) return;
+            if (Dead || invulnerable) return;
             Health = 0f;
             Dead = true;
             Died?.Invoke(this);
@@ -73,7 +76,7 @@ namespace OrangeWorld
 
         public void TakeDamage(float amount, Vector3 point)
         {
-            if (Dead || amount <= 0f || Time.time - LastDamageTime < invulnerableSeconds) return;
+            if (Dead || invulnerable || amount <= 0f || Time.time - LastDamageTime < invulnerableSeconds) return;
 
             LastDamageTime = Time.time;
             Health -= amount;

@@ -41,7 +41,7 @@ namespace OrangeWorld.EditorTools
         const float ShopPlatformRadius = 6f;
         static readonly Vector3 ShopPosition = new(0f, -80f, 0f);
 
-        struct BossSpec
+        internal struct BossSpec
         {
             public string Name;
             public Vector3 Position;
@@ -51,7 +51,8 @@ namespace OrangeWorld.EditorTools
             public bool Melee;
         }
 
-        static readonly BossSpec[] BossPlanets =
+        // Internal so SandboxSceneBuilder can summon copies of these same two bosses by the same stats.
+        internal static readonly BossSpec[] BossPlanets =
         {
             new() { Name = "Crimson Titan's Lair", Position = new Vector3(0f, -25f, -68f), Radius = 20f,
                 Color = new Color(0.55f, 0.04f, 0.04f), RecommendedLevel = 5, Melee = true },
@@ -84,6 +85,12 @@ namespace OrangeWorld.EditorTools
             var blobling = BuildBloblingPrefab(palette, bouncy);
             var gunnerBlobling = BuildGunnerBloblingPrefab(palette, bouncy, projectile);
             var meleeBlobling = BuildMeleeBloblingPrefab(palette, bouncy);
+            var meleeBossPrefab = BuildMeleeBossPrefab(palette, bouncy);
+            var gunnerBossPrefab = BuildGunnerBossPrefab(palette, bouncy, projectile);
+            var flailPrefab = BuildFlailPrefab(palette);
+            var malletPrefab = BuildMalletPrefab(palette);
+            var bopperPrefab = BuildBopperPrefab(palette);
+            var yoyoPrefab = BuildYoyoPrefab(palette);
 
             BuildLightingAndSky();
             var keepClear = Planets.Select(_ => new List<Vector3>()).ToArray();
@@ -92,11 +99,11 @@ namespace OrangeWorld.EditorTools
             var jumpShroomParent = BuildJumpPads(palette, keepClear);
             BuildDecor(palette, keepClear);
             BuildSpaceJunk(palette);
-            BuildBossPlanets(palette, meleeBlobling, gunnerBlobling, projectile, jumpShroomParent);
-            BuildFlail(SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), palette);
-            BuildMallet(SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), palette);
-            BuildBopper(SpawnPoint + new Vector3(1.3f, 0.4f, 0.4f), palette);
-            BuildYoyo(SpawnPoint + new Vector3(-1.3f, 0.9f, 0.4f), palette);
+            BuildBossPlanets(palette, meleeBossPrefab, gunnerBossPrefab, projectile, jumpShroomParent);
+            Object.Instantiate(flailPrefab, SpawnPoint + new Vector3(0.6f, 1.1f, 0.9f), Quaternion.identity);
+            Object.Instantiate(malletPrefab, SpawnPoint + new Vector3(-0.6f, 0.5f, 0.9f), Quaternion.identity);
+            Object.Instantiate(bopperPrefab, SpawnPoint + new Vector3(1.3f, 0.4f, 0.4f), Quaternion.identity);
+            Object.Instantiate(yoyoPrefab, SpawnPoint + new Vector3(-1.3f, 0.9f, 0.4f), Quaternion.identity);
             var shopStand = BuildShop(palette);
             var player = BuildPlayer(palette, slippery, shopStandPosition: shopStand);
             var spawner = new GameObject("Wave Spawner").AddComponent<WaveSpawner>();
@@ -199,7 +206,7 @@ namespace OrangeWorld.EditorTools
             return prefab;
         }
 
-        static GameObject BuildGunnerBloblingPrefab(Palette p, PhysicsMaterial bouncy, GameObject projectilePrefab)
+        internal static GameObject BuildGunnerBloblingPrefab(Palette p, PhysicsMaterial bouncy, GameObject projectilePrefab)
         {
             var go = CreateBloblingBase("Gunner Blobling", p, bouncy);
             AddGun(go, p, projectilePrefab);
@@ -219,6 +226,41 @@ namespace OrangeWorld.EditorTools
             brain.lungeSpeed = 9f;
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/MeleeBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        // Separate prefabs from the regular blobs, rather than just scaling one up at spawn time, because a boss
+        // permanently needs two components stripped (see below) - and that's only safe to do before anything has
+        // ever subscribed to their events, i.e. at prefab-creation time, not on some already-playing instance.
+        internal static GameObject BuildMeleeBossPrefab(Palette p, PhysicsMaterial bouncy)
+        {
+            var go = CreateBloblingBase("Melee Boss Blobling", p, bouncy);
+            AddClub(go, p);
+            go.AddComponent<MeleeBlob>();
+
+            var brain = go.GetComponent<CreatureBrain>();
+            brain.contactDamage = 24f;
+            brain.lungeSpeed = 9f;
+
+            // A boss never splits and gets a fixed body color from BossConfig instead of the usual random tint.
+            Object.DestroyImmediate(go.GetComponent<SplitOnDeath>());
+            Object.DestroyImmediate(go.GetComponent<RandomTint>());
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/MeleeBossBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        internal static GameObject BuildGunnerBossPrefab(Palette p, PhysicsMaterial bouncy, GameObject projectilePrefab)
+        {
+            var go = CreateBloblingBase("Gunner Boss Blobling", p, bouncy);
+            AddGun(go, p, projectilePrefab);
+
+            Object.DestroyImmediate(go.GetComponent<SplitOnDeath>());
+            Object.DestroyImmediate(go.GetComponent<RandomTint>());
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/GunnerBossBlobling.prefab");
             Object.DestroyImmediate(go);
             return prefab;
         }
@@ -296,7 +338,7 @@ namespace OrangeWorld.EditorTools
             Prim(PrimitiveType.Sphere, "Club Head", arm, new Vector3(0f, 0f, 0.4f), Vector3.one * 0.24f, p.Metal, collider: false);
         }
 
-        static GameObject BuildProjectilePrefab(Palette p)
+        internal static GameObject BuildProjectilePrefab(Palette p)
         {
             var go = Prim(PrimitiveType.Sphere, "Glob", null, Vector3.zero, Vector3.one * 0.14f, p.Slime);
             var body = go.AddComponent<Rigidbody>();
@@ -493,65 +535,33 @@ namespace OrangeWorld.EditorTools
             }
         }
 
+        // Shared with SandboxBossSummonButton's setup (via SandboxSceneBuilder) so a summoned boss matches its
+        // planet-dwelling counterpart exactly.
+        internal static float BossScale(BossSpec boss) => 3f + boss.RecommendedLevel * 0.4f;
+        internal static int BossBucksReward(BossSpec boss) => 30 + boss.RecommendedLevel * 8;
+        internal static float BossXpReward(BossSpec boss) => 50f + boss.RecommendedLevel * 15f;
+
+        internal static Material BossBodyMaterial(BossSpec boss) =>
+            Mat("BossBody_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.6f, 0.35f);
+
         static void SpawnBoss(BossSpec boss, GameObject meleePrefab, GameObject gunnerPrefab, GameObject projectilePrefab)
         {
             var prefab = boss.Melee ? meleePrefab : gunnerPrefab;
-            float scale = 3f + boss.RecommendedLevel * 0.4f;
+            float scale = BossScale(boss);
             Vector3 point = boss.Position + Vector3.up * (boss.Radius + scale * 0.5f + 0.1f);
 
             var instance = Object.Instantiate(prefab, point, Quaternion.identity);
             instance.name = boss.Name + " Boss";
-            instance.transform.localScale = Vector3.one * scale;
 
-            var body = instance.GetComponent<Rigidbody>();
-            body.mass *= scale * scale * scale;
-
-            var health = instance.GetComponent<Damageable>();
-            health.SetMaxHealth(health.maxHealth * scale * 2.5f);
-
-            var brain = instance.GetComponent<CreatureBrain>();
-            if (brain != null) brain.contactDamage *= 2f;
-
-            // A fixed, imposing color instead of the usual random eye-color tint every other blob gets.
-            var randomTint = instance.GetComponent<RandomTint>();
-            if (randomTint != null) Object.DestroyImmediate(randomTint);
-            var bodyRenderer = instance.transform.Find("Visual/Body")?.GetComponent<Renderer>();
-            if (bodyRenderer != null)
-                bodyRenderer.sharedMaterial = Mat("BossBody_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.6f, 0.35f);
-
-            // A boss just dies outright instead of shattering into a swarm of smaller blobs like its regular kin.
-            var splitOnDeath = instance.GetComponent<SplitOnDeath>();
-            if (splitOnDeath != null) Object.DestroyImmediate(splitOnDeath);
-
-            instance.AddComponent<BossHealthBar>().bossName = boss.Name;
-
-            var reward = instance.AddComponent<BossReward>();
-            reward.bossName = boss.Name;
-            reward.bucksReward = 30 + boss.RecommendedLevel * 8;
-            reward.xpReward = 50f + boss.RecommendedLevel * 15f;
-
-            var special = instance.AddComponent<BossSpecialAttack>();
-            if (boss.Melee)
-            {
-                special.slamRadius = 2f + scale;
-                special.range = special.slamRadius + 3f;
-                // A single AOE burst as strong as one already-doubled contact hit, spread across the slam radius.
-                special.slamDamage = brain != null ? brain.contactDamage : special.slamDamage;
-            }
-            else
-            {
-                var gun = instance.GetComponent<BlobGun>();
-                special.projectilePrefab = projectilePrefab;
-                special.muzzle = gun != null ? gun.muzzle : instance.transform;
-                special.range = gun != null ? gun.range * 1.4f : special.range;
-                // Total barrage damage lines up with the melee boss's slam, just split across several shots.
-                special.barrageDamagePerShot = gun != null ? gun.damage : special.barrageDamagePerShot;
-            }
+            // The rest of the boss's setup (scale, health, damage, color, health bar, reward, special attack) is
+            // the same call SandboxBossSummonButton makes for a sandbox-summoned boss, so both produce an identical boss.
+            BossConfig.Configure(instance, boss.Name, scale, BossBodyMaterial(boss), projectilePrefab,
+                BossBucksReward(boss), BossXpReward(boss));
         }
 
         // ---------- Weapons ----------
 
-        static void BuildFlail(Vector3 handlePosition, Palette p)
+        static GameObject BuildFlail(Vector3 handlePosition, Palette p)
         {
             const float spacing = 0.09f;
             const int linkCount = 5;
@@ -592,9 +602,19 @@ namespace OrangeWorld.EditorTools
             damager.minImpactSpeed = 2.5f;
             damager.damagePerSpeed = 9f;
             damager.knockback = 0.35f;
+
+            return root.gameObject;
         }
 
-        static void BuildMallet(Vector3 position, Palette p)
+        internal static GameObject BuildFlailPrefab(Palette p)
+        {
+            var go = BuildFlail(Vector3.zero, p);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/EyeballFlail.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildMallet(Vector3 position, Palette p)
         {
             var mallet = new GameObject("Squeaky Mallet");
             mallet.transform.position = position;
@@ -610,9 +630,19 @@ namespace OrangeWorld.EditorTools
             Prim(PrimitiveType.Cylinder, "Handle", mallet.transform, Vector3.zero, new Vector3(0.06f, 0.28f, 0.06f), p.Stalk);
             var head = Prim(PrimitiveType.Cylinder, "Head", mallet.transform, new Vector3(0f, 0.32f, 0f), new Vector3(0.26f, 0.2f, 0.26f), p.Mallet);
             head.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+            return mallet;
         }
 
-        static void BuildBopper(Vector3 position, Palette p)
+        internal static GameObject BuildMalletPrefab(Palette p)
+        {
+            var go = BuildMallet(Vector3.zero, p);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/SqueakyMallet.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildBopper(Vector3 position, Palette p)
         {
             // A light, floppy boxing-glove club: low mass and low damage per swing, but a big cartoon knockback.
             var bopper = new GameObject("Boxing Glove Bopper");
@@ -628,15 +658,29 @@ namespace OrangeWorld.EditorTools
 
             Prim(PrimitiveType.Cylinder, "Handle", bopper.transform, Vector3.zero, new Vector3(0.05f, 0.22f, 0.05f), p.Stalk);
             Prim(PrimitiveType.Sphere, "Glove", bopper.transform, new Vector3(0f, 0.32f, 0f), new Vector3(0.28f, 0.24f, 0.28f), Pick(p.Candy));
+
+            return bopper;
         }
 
-        static void BuildYoyo(Vector3 position, Palette p)
+        internal static GameObject BuildBopperPrefab(Palette p)
+        {
+            var go = BuildBopper(Vector3.zero, p);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/BoxingGloveBopper.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildYoyo(Vector3 position, Palette p)
         {
             // A ball on a SpringJoint instead of the flail's rigid chain: it stretches and snaps back, unpredictable.
-            var handle = Part("Yo-yo Handle", null, position, 0.5f);
+            // Both parts share a root (unlike a bare pair of top-level objects) so Instantiate-ing the whole thing
+            // as a prefab correctly remaps the SpringJoint's connectedBody to the clone's own handle, not the original's.
+            var root = new GameObject("Yo-yo").transform;
+
+            var handle = Part("Yo-yo Handle", root, position, 0.5f);
             Prim(PrimitiveType.Capsule, "Grip", handle.transform, Vector3.zero, new Vector3(0.06f, 0.18f, 0.06f), p.Mallet);
 
-            var ball = Part("Yo-yo Ball", null, position + Vector3.down * 0.5f, 1.2f);
+            var ball = Part("Yo-yo Ball", root, position + Vector3.down * 0.5f, 1.2f);
             Prim(PrimitiveType.Sphere, "Ball", ball.transform, Vector3.zero, Vector3.one * 0.22f, Pick(p.Candy));
 
             var spring = ball.gameObject.AddComponent<SpringJoint>();
@@ -653,6 +697,16 @@ namespace OrangeWorld.EditorTools
             damager.minImpactSpeed = 2f;
             damager.damagePerSpeed = 8f;
             damager.knockback = 0.3f;
+
+            return root.gameObject;
+        }
+
+        internal static GameObject BuildYoyoPrefab(Palette p)
+        {
+            var go = BuildYoyo(Vector3.zero, p);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/Yoyo.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
         }
 
         static void BuildHealthShrine(Vector3 position, Palette p)

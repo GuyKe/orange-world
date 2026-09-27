@@ -36,6 +36,7 @@ namespace OrangeWorld.EditorTools
             SpawnDemoBlobs(palette, bouncy);
             BuildTitle();
             BuildPlayButton(palette);
+            BuildSandboxButton(palette);
             var player = PrototypeSceneBuilder.BuildPlayer(palette, slippery, addVitals: false, spawnPosition: SpawnPoint);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -44,11 +45,12 @@ namespace OrangeWorld.EditorTools
             Debug.Log($"[Orange World] Built {ScenePath}. It's now first in Build Settings, so Build And Run opens here.");
         }
 
-        [MenuItem("Orange World/4. Build All Scenes", priority = 4)]
+        [MenuItem("Orange World/5. Build All Scenes", priority = 5)]
         public static void BuildAll()
         {
             Build();
             PrototypeSceneBuilder.Build();
+            SandboxSceneBuilder.Build();
         }
 
         static void BuildPlatform()
@@ -105,6 +107,20 @@ namespace OrangeWorld.EditorTools
 
             var menuButton = button.AddComponent<MenuButton>();
             menuButton.sceneName = "Prototype";
+            menuButton.visual = button.transform;
+        }
+
+        static void BuildSandboxButton(PrototypeSceneBuilder.Palette p)
+        {
+            Vector3 position = SpawnPoint + Vector3.forward * 1.6f + Vector3.right * 0.9f + Vector3.up * 1.1f;
+            var button = PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Sandbox Button", null, position,
+                new Vector3(0.5f, 0.5f, 0.25f), p.Candy[1]);
+
+            var label = WorldText.Create("Sandbox Label", button.transform, Vector3.back * 0.14f, new Vector2(0.6f, 0.25f), 0.12f);
+            label.text = "SANDBOX";
+
+            var menuButton = button.AddComponent<MenuButton>();
+            menuButton.sceneName = "Sandbox";
             menuButton.visual = button.transform;
         }
     }

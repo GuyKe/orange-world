@@ -25,6 +25,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Upgrades shop** | Click B any time to warp to a small shop platform tucked away from the main play area; click B again to warp right back to where you were. Punch the glowing shrine there to spend 25 Blob Bucks on a permanent +10 max health upgrade — as many times as you can afford it. |
 | **Boss planets** | Two big, bare arena planets, each reachable by its own Jump Shroom from Home and signed with a recommended level, hold one giant scaled-up blob apiece — a melee brute and a gunner — with much higher health and damage than their normal-sized kin. Each boss shows a floating red health bar overhead and, on a cooldown, unleashes a telegraphed special attack: the melee brute winds up and ground-slams everything nearby, the gunner winds up and fires a spreading barrage instead of its usual single shot. A boss just dies outright instead of splitting, and drops a big lump of Blob Bucks and XP, a full ultimate charge, and a floating "DEFEATED!" readout. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
+| **Sandbox** | A SANDBOX button next to PLAY drops you on a big, bare baseplate with no wave spawner or shop — just a row of punchable buttons that summon a normal/gunner/melee blob, a melee or gunner boss, or any of the four weapons, on demand, as many times as you like. A God Mode button makes you unkillable; a Back To Menu button returns you to the main menu, which also turns God Mode off since it's never saved anywhere. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
 
@@ -88,6 +89,8 @@ a sign. These are the things in this project I couldn't verify visually without 
 | Warp to/from the upgrades shop | Click B | B |
 | Buy a health upgrade | Punch the gold shrine in the shop (needs 25 Blob Bucks) | Same, in-world |
 | Visit a boss | Follow a Jump Shroom from Home to a boss planet's sign | Same, in-world |
+| Summon a blob/boss/weapon in the Sandbox | Punch the matching button | Same, in-world |
+| Toggle God Mode in the Sandbox | Punch the God Mode button | Same, in-world |
 
 ## Project layout
 
@@ -101,13 +104,17 @@ Assets/_Project/
                 ElasticArm (noodle arms), PlayerVitals (health feedback + health bar), PlayerUltimate
                 (charge/buff/HUD), PlayerBucks (currency + counter), PlayerLevel (XP + level bar),
                 ShopTeleport (click B), DesktopDebugRig
-    Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
+    Combat/     Damageable (has a sandbox `invulnerable`/God Mode flag), ImpactDamager (momentum-based damage),
+                Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), MeleeBlob (marker),
-                WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack, BossReward
+                WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack, BossReward,
+                BossConfig (turns an instance into a boss at runtime)
     World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button),
-                HealthShrine (punchable Blob-Bucks-for-HP upgrade)
-  Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder (menu: Orange World)
+                HealthShrine (punchable Blob-Bucks-for-HP upgrade), SandboxButtonBase (punch-and-press base),
+                SandboxSpawnButton (summon a blob/weapon), SandboxBossSummonButton (summon a boss),
+                SandboxGodModeButton (toggle invulnerable)
+  Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder, SandboxSceneBuilder (menu: Orange World)
 ```
 
 ### How the key pieces fit together
@@ -179,25 +186,45 @@ Assets/_Project/
 - **Boss planets:** `PrototypeSceneBuilder.BossPlanets` is a small array of big, bare planetoids with a recommended
   level each. `BuildBossPlanets` reuses `BuildJumpPad` (factored out of the regular `BuildJumpPads` loop so both can
   call it) to connect each one to Home, posts a `WorldText` sign with the recommended level, and calls `SpawnBoss` to
-  drop in one scaled-up melee or gunner blob instance (`localScale` up to ~6.6×, health scaled by `size × 2.5`,
-  `contactDamage` doubled) with a fixed color instead of the usual `RandomTint`, so it reads as a distinct boss
-  rather than a big regular blob. `SpawnBoss` also strips the `SplitOnDeath` every other blob carries, so a boss
-  just dies outright instead of shattering into a swarm of smaller blobs.
-- **Boss rewards:** `BossReward` (added by `SpawnBoss`, sized off the boss's `RecommendedLevel`) listens for its own
-  `Damageable.Died` and pays out directly: a lump of Blob Bucks and XP, a full `PlayerUltimate` charge via the new
-  `FillCharge()`, and a floating `WorldText` "DEFEATED!" readout that billboards toward the player for a few
+  drop in one `MeleeBossBlobling`/`GunnerBossBlobling` prefab instance - separate prefabs from the regular
+  `MeleeBlobling`/`GunnerBlobling`, built with `SplitOnDeath` and `RandomTint` permanently stripped, since removing
+  those safely (before anything has ever subscribed to their events) can only happen at prefab-creation time, not on
+  an already-playing instance.
+- **BossConfig:** the rest of a boss's setup - scale (`localScale` up to ~6.6×), health (`size × 2.5`), doubled
+  `contactDamage`, a fixed body color, and adding `BossHealthBar`/`BossReward`/`BossSpecialAttack` - all happens in
+  `BossConfig.Configure`, a plain static method called right after `Instantiate` by either `SpawnBoss` (a boss
+  planet) or `SandboxBossSummonButton` (a sandbox summon), so both produce an identical boss from the same handful
+  of numbers. It's a static method rather than a MonoBehaviour configured via `AddComponent` and then assigning
+  fields, since `AddComponent` runs the new component's `Awake` immediately - before any field on the reference it
+  returns could ever be assigned - so there'd be no safe way to hand it per-boss numbers that way. It tells melee
+  and gunner apart by checking for `BlobGun`, the same component-presence trick `MeleeBlob`/`PlayerBucks` already
+  use elsewhere.
+- **Boss rewards:** `BossReward` (configured by `BossConfig`, sized off the boss's recommended level) listens for its
+  own `Damageable.Died` and pays out directly: a lump of Blob Bucks and XP, a full `PlayerUltimate` charge via the
+  new `FillCharge()`, and a floating `WorldText` "DEFEATED!" readout that billboards toward the player for a few
   seconds before destroying itself. `PlayerBucks` and `PlayerLevel` check for `BossReward` the same way they check
   for `MeleeBlob`/`BlobGun` and skip their usual per-type payout on that death, so these numbers are the whole
   reward rather than a bonus stacked on top of a normal kill.
-- **Boss health bars and special attacks:** `SpawnBoss` also adds `BossHealthBar` and `BossSpecialAttack` to the
-  instance. `BossHealthBar` builds its bar in world space rather than parenting it under the (much larger-scaled)
-  boss, repositioning it above the boss's head every `LateUpdate` using its `GravityBody.Up` so it stays correctly
-  "up" on a sphere - the same scaled-parent trap the boss planets themselves avoid, and it self-destroys its bar
-  when the boss does since the two aren't otherwise linked. `BossSpecialAttack` picks its move from whichever fields
-  `SpawnBoss` wired up: with no `projectilePrefab` it ground-slams a radius around itself for as much damage as one
-  already-doubled contact hit; with one, it fires a spreading multi-shot barrage instead, sized to add up to the
-  same total damage. Either move gets a brief wind-up (a negative `Jiggle.Punch`, stretching the blob upward instead
-  of squashing it) as a dodgeable tell before it fires.
+- **Boss health bars and special attacks:** `BossHealthBar` builds its bar in world space rather than parenting it
+  under the (much larger-scaled) boss, repositioning it above the boss's head every `LateUpdate` using its
+  `GravityBody.Up` so it stays correctly "up" on a sphere - the same scaled-parent trap the boss planets themselves
+  avoid, and it self-destroys its bar when the boss does since the two aren't otherwise linked. `BossSpecialAttack`
+  picks its move from whichever fields `BossConfig` wired up: with no `projectilePrefab` it ground-slams a radius
+  around itself for as much damage as one already-doubled contact hit; with one, it fires a spreading multi-shot
+  barrage instead, sized to add up to the same total damage. Either move gets a brief wind-up (a negative
+  `Jiggle.Punch`, stretching the blob upward instead of squashing it) as a dodgeable tell before it fires.
+- **Sandbox:** a SANDBOX button on the main menu loads a scene built by `SandboxSceneBuilder` - a big baseplate and
+  a row of punchable buttons, no wave spawner or shop. Every weapon (`BuildFlail`/`BuildMallet`/`BuildBopper`/
+  `BuildYoyo`) is now also saved as a real prefab asset (`BuildFlailPrefab` etc., mirroring how blobs already work),
+  so a `SandboxSpawnButton` can summon one with a plain `Instantiate` at runtime - the Editor-only construction code
+  never needs to run outside the Editor. The `Yo-yo`'s handle and ball, previously two unrelated top-level objects,
+  now share a root transform so instantiating the prefab correctly remaps the `SpringJoint` between the clone's own
+  parts instead of the original's. `SandboxBossSummonButton` does the same for bosses, reusing the exact
+  `PrototypeSceneBuilder.BossPlanets` stats (via `BossScale`/`BossBucksReward`/`BossXpReward`/`BossBodyMaterial`) so
+  a summoned boss matches its planet-dwelling counterpart. A `SandboxGodModeButton` flips the player's
+  `Damageable.invulnerable` flag, which blocks both `TakeDamage` and `Kill` outright; since nothing in the game
+  persists between scenes, leaving for the main menu tears down the player (and the flag with it), so God Mode can
+  never leak into a real run.
 
 ## Tuning cheat sheet
 
@@ -230,10 +257,13 @@ Assets/_Project/
 | XP per blob type / how much harder each level gets | `PlayerLevel.xpPerNormalBlob`/`xpPerGunnerBlob`/`xpPerMeleeBlob`, `xpGrowthPerLevel` |
 | Reward for leveling up | `PlayerLevel.bonusHealthPerLevel` |
 | Boss planet position, size, recommended level, or which blob type | `PrototypeSceneBuilder.BossPlanets` (regenerate the scene after changing) |
-| Boss toughness (health/damage/size scaling) | the `scale`/`SetMaxHealth`/`contactDamage` math in `PrototypeSceneBuilder.SpawnBoss` |
+| Boss toughness (health/damage/size scaling) | the `scale`/`SetMaxHealth`/`contactDamage` math in `BossConfig.Configure` |
 | Boss health bar look and height | `BossHealthBar.barWidth`/`barHeight`/colors/`heightAboveRadius` |
 | Boss special attack cooldown, range, or damage | `BossSpecialAttack.cooldown`/`range`, `slamRadius`/`slamDamage`/`slamKnockback`, `barrageShots`/`barrageSpreadDegrees`/`barrageDamagePerShot` |
-| Boss kill reward (Bucks/XP/toast) | `BossReward.bucksReward`/`xpReward`/`toastSeconds`/`toastColor`, set per-boss in `PrototypeSceneBuilder.SpawnBoss` |
+| Boss kill reward (Bucks/XP/toast) | `BossReward.bucksReward`/`xpReward`/`toastSeconds`/`toastColor`, set per-boss in `PrototypeSceneBuilder.BossBucksReward`/`BossXpReward` |
+| Sandbox baseplate size / where its buttons are | `SandboxSceneBuilder.BaseplateRadius` and the offsets passed to its `Build*Button` calls (regenerate the scene after changing) |
+| How hard you must punch a sandbox button | `SandboxButtonBase.minImpactSpeed` |
+| What a sandbox summon button spawns / where it lands | `SandboxSpawnButton.template`/`spawnPoint`, or `SandboxBossSummonButton`'s fields, on that button in `Sandbox` |
 
 ## Comfort note
 
