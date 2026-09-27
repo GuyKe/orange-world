@@ -23,7 +23,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Health, Blob Bucks & level** | A faded red "HEALTH" bar (starts at 100 max) sits bottom-left, mirroring the ultimate charge; a yellow "Blob Bucks: N" counter sits top-right; a cyan "LEVEL N" bar sits top-left. Every corner has its own color, so you can tell them apart at a glance without reading. |
 | **Leveling up** | Killing blobs also grants XP, and each level demands more than the last (the requirement compounds ×1.35 per level), so it's a slow climb that never plateaus into "trivial." Every level up grants a small permanent health bonus. Splitting a normal blob is worth 1 Blob Buck / 4 XP, a gunner or melee blob is worth 2 Blob Bucks and 6-7 XP. |
 | **Upgrades shop** | Click B any time to warp to a small shop platform tucked away from the main play area; click B again to warp right back to where you were. Punch the glowing shrine there to spend 25 Blob Bucks on a permanent +10 max health upgrade — as many times as you can afford it. |
-| **Boss planets** | Two big, bare arena planets, each reachable by its own Jump Shroom from Home and signed with a recommended level, hold one giant scaled-up blob apiece — a melee brute and a gunner — with much higher health and damage than their normal-sized kin. Each boss shows a floating red health bar overhead and, on a cooldown, unleashes a telegraphed special attack: the melee brute winds up and ground-slams everything nearby, the gunner winds up and fires a spreading barrage instead of its usual single shot. Beating one still splits it, so a boss fight ends in a shower of smaller blobs. |
+| **Boss planets** | Two big, bare arena planets, each reachable by its own Jump Shroom from Home and signed with a recommended level, hold one giant scaled-up blob apiece — a melee brute and a gunner — with much higher health and damage than their normal-sized kin. Each boss shows a floating red health bar overhead and, on a cooldown, unleashes a telegraphed special attack: the melee brute winds up and ground-slams everything nearby, the gunner winds up and fires a spreading barrage instead of its usual single shot. A boss just dies outright instead of splitting, and drops a big lump of Blob Bucks and XP, a full ultimate charge, and a floating "DEFEATED!" readout. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
@@ -104,7 +104,7 @@ Assets/_Project/
     Combat/     Damageable, ImpactDamager (momentum-based damage), Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), MeleeBlob (marker),
-                WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack
+                WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack, BossReward
     World/      JumpPad, LookAtCamera, Orbiter, MenuButton (punchable scene-load button),
                 HealthShrine (punchable Blob-Bucks-for-HP upgrade)
   Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder (menu: Orange World)
@@ -181,8 +181,14 @@ Assets/_Project/
   call it) to connect each one to Home, posts a `WorldText` sign with the recommended level, and calls `SpawnBoss` to
   drop in one scaled-up melee or gunner blob instance (`localScale` up to ~6.6×, health scaled by `size × 2.5`,
   `contactDamage` doubled) with a fixed color instead of the usual `RandomTint`, so it reads as a distinct boss
-  rather than a big regular blob. Since it's still the same prefab underneath, killing it still triggers
-  `SplitOnDeath` - a boss fight ends with a shower of smaller blobs.
+  rather than a big regular blob. `SpawnBoss` also strips the `SplitOnDeath` every other blob carries, so a boss
+  just dies outright instead of shattering into a swarm of smaller blobs.
+- **Boss rewards:** `BossReward` (added by `SpawnBoss`, sized off the boss's `RecommendedLevel`) listens for its own
+  `Damageable.Died` and pays out directly: a lump of Blob Bucks and XP, a full `PlayerUltimate` charge via the new
+  `FillCharge()`, and a floating `WorldText` "DEFEATED!" readout that billboards toward the player for a few
+  seconds before destroying itself. `PlayerBucks` and `PlayerLevel` check for `BossReward` the same way they check
+  for `MeleeBlob`/`BlobGun` and skip their usual per-type payout on that death, so these numbers are the whole
+  reward rather than a bonus stacked on top of a normal kill.
 - **Boss health bars and special attacks:** `SpawnBoss` also adds `BossHealthBar` and `BossSpecialAttack` to the
   instance. `BossHealthBar` builds its bar in world space rather than parenting it under the (much larger-scaled)
   boss, repositioning it above the boss's head every `LateUpdate` using its `GravityBody.Up` so it stays correctly
@@ -227,6 +233,7 @@ Assets/_Project/
 | Boss toughness (health/damage/size scaling) | the `scale`/`SetMaxHealth`/`contactDamage` math in `PrototypeSceneBuilder.SpawnBoss` |
 | Boss health bar look and height | `BossHealthBar.barWidth`/`barHeight`/colors/`heightAboveRadius` |
 | Boss special attack cooldown, range, or damage | `BossSpecialAttack.cooldown`/`range`, `slamRadius`/`slamDamage`/`slamKnockback`, `barrageShots`/`barrageSpreadDegrees`/`barrageDamagePerShot` |
+| Boss kill reward (Bucks/XP/toast) | `BossReward.bucksReward`/`xpReward`/`toastSeconds`/`toastColor`, set per-boss in `PrototypeSceneBuilder.SpawnBoss` |
 
 ## Comfort note
 

@@ -519,7 +519,16 @@ namespace OrangeWorld.EditorTools
             if (bodyRenderer != null)
                 bodyRenderer.sharedMaterial = Mat("BossBody_" + boss.Name.Replace(" ", "").Replace("'", ""), boss.Color, 0.6f, 0.35f);
 
+            // A boss just dies outright instead of shattering into a swarm of smaller blobs like its regular kin.
+            var splitOnDeath = instance.GetComponent<SplitOnDeath>();
+            if (splitOnDeath != null) Object.DestroyImmediate(splitOnDeath);
+
             instance.AddComponent<BossHealthBar>().bossName = boss.Name;
+
+            var reward = instance.AddComponent<BossReward>();
+            reward.bossName = boss.Name;
+            reward.bucksReward = 30 + boss.RecommendedLevel * 8;
+            reward.xpReward = 50f + boss.RecommendedLevel * 15f;
 
             var special = instance.AddComponent<BossSpecialAttack>();
             if (boss.Melee)

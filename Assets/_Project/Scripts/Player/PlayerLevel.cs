@@ -47,12 +47,18 @@ namespace OrangeWorld
             // Only blobs (Blobling/GunnerBlobling/MeleeBlobling) carry a CreatureBrain, so this can't fire
             // from the player itself.
             if (dead.GetComponent<CreatureBrain>() == null) return;
+            // Bosses pay out through BossReward instead, which is a lot more than any of the per-type values below.
+            if (dead.GetComponent<BossReward>() != null) return;
 
             float gained = dead.GetComponent<BlobGun>() != null ? xpPerGunnerBlob
                 : dead.GetComponent<MeleeBlob>() != null ? xpPerMeleeBlob
                 : xpPerNormalBlob;
-            XP += gained;
+            GrantXP(gained);
+        }
 
+        public void GrantXP(float amount)
+        {
+            XP += amount;
             while (XP >= XPToNextLevel)
             {
                 XP -= XPToNextLevel;

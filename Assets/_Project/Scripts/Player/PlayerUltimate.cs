@@ -35,6 +35,8 @@ namespace OrangeWorld
         public bool Active { get; private set; }
         bool Ready => !Active && Charge >= maxCharge;
 
+        public void FillCharge() => Charge = maxCharge;
+
         Damageable health;
         InputAction leftClick, rightClick, keyboardActivate;
         Transform meterFill;
