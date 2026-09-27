@@ -29,7 +29,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Portals** | One pair of weird little rifts — a pulsing glowing core with a ring of jagged shards tumbling and orbiting around it at odd angles — sit near Home and Magenta Lump. Get close and they pull you (or a blob, rock, weapon, anything with physics) in with a swirling vortex force; get close enough and you're launched out of the other one. Just one pair, on purpose, so they're a fun surprise rather than replacing the Jump Shrooms as the main way to get around. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 | **Sandbox** | A SANDBOX button next to PLAY drops you on a big, bare baseplate with no wave spawner or shop — just a row of punchable buttons that summon a normal/gunner/melee blob, a melee or gunner boss, or any of the four weapons, on demand, as many times as you like. A God Mode button makes you unkillable; a Back To Menu button returns you to the main menu, which also turns God Mode off since it's never saved anywhere. |
-| **Purple Mode** | A PURPLE MODE button loads a deliberately empty stub scene — a purple baseplate, a title, the player, and a way back to the main menu. Nothing else lives here on purpose; it's a blank canvas for a future game mode, not a finished feature. |
+| **Purple Mode** | A PURPLE MODE button loads a deliberately minimal stub scene: you spawn inside a boxy, low-poly PS1-style house — flat overhanging roof, five square window openings and a doorway you can actually walk through — sitting in a big grass field, with a way back to the main menu. No creatures, no rules; it's a blank canvas for a future game mode, not a finished feature. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
 
@@ -120,7 +120,7 @@ Assets/_Project/
                 SandboxButtonBase (punch-and-press base), SandboxSpawnButton (summon a blob/weapon),
                 SandboxBossSummonButton (summon a boss), SandboxGodModeButton (toggle invulnerable)
   Editor/       QuestProjectSetup, PrototypeSceneBuilder, MainMenuSceneBuilder, SandboxSceneBuilder,
-                PurpleModeSceneBuilder (empty stub scene) (menu: Orange World)
+                PurpleModeSceneBuilder (stub scene: a house in a grass field) (menu: Orange World)
 ```
 
 ### How the key pieces fit together
@@ -257,9 +257,15 @@ Assets/_Project/
   the same launch convention as `JumpPad`. Both ends get a brief `arrivalCooldown` on that body so it can't
   immediately get sucked straight back in from right next to the exit.
 - **Purple Mode:** `PurpleModeSceneBuilder` follows the exact same scene-generation pattern as every other scene
-  (lighting, a `GravityAttractor` baseplate, `BuildPlayer`, `RegisterScene`) but deliberately builds nothing else -
+  (lighting, a `GravityAttractor` field, `BuildPlayer`, `RegisterScene`) but deliberately builds nothing gameplay-wise -
   no wave spawner, no summon buttons, no rules. It exists so a future game mode has a real scene, a working player
   rig, and a menu entry to start from on day one, instead of that setup work being redone from scratch later.
+  `BuildHouse` builds its front wall from ten separate panels (`BuildFrontWall`'s hardcoded `(x0, x1, y0, y1)`
+  list) rather than one solid slab with holes cut into it - real PS1-era levels were built the same way, out of
+  flat panels arranged around openings, so the five windows and the doorway are actual gaps you can see through
+  and walk through, not just a texture. The other three walls, the floor, and the flat overhanging roof are each
+  a single `Cube`. The grass field reuses the same giant-sphere-as-flat-ground trick every other planet in this
+  game uses (see the scaled-parent note above), just recolored and sized bigger for a wide-open feel.
 
 ## Tuning cheat sheet
 
@@ -305,6 +311,8 @@ Assets/_Project/
 | Where the portals are / adding more | `PrototypeSceneBuilder.BuildPortals` (regenerate the scene after changing) |
 | Portal pull range/strength, suck distance, eject speed | `Portal.pullRadius`/`pullStrength`/`suckRadius`/`ejectSpeed`/`arrivalCooldown` |
 | Portal look (shard count, colors, spin speeds) | the `shardCount` loop and `Orbiter` setup in `PrototypeSceneBuilder.BuildPortal` |
+| Purple Mode house size, window/door layout, colors | `PurpleModeSceneBuilder.HouseWidth`/`HouseDepth`/`HouseHeight` and the `panels` list in `BuildFrontWall` (regenerate the scene after changing) |
+| Purple Mode grass field size | `PurpleModeSceneBuilder.FieldRadius` |
 
 ## Comfort note
 
