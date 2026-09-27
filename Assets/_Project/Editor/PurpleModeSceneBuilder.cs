@@ -4,17 +4,22 @@ using UnityEngine;
 
 namespace OrangeWorld.EditorTools
 {
-    // A deliberately minimal stub scene: you spawn inside a boxy, low-poly house sitting in a big grass field,
-    // with a way back to the main menu. No creatures, no rules - a blank canvas for a future game mode, not a
-    // finished feature.
+    // A deliberately minimal stub scene: you spawn inside a furnished, boxy, low-poly house sitting on a long
+    // rectangular grass field, with a way back to the main menu. No creatures, no rules - a blank canvas for a
+    // future game mode, not a finished feature.
     public static class PurpleModeSceneBuilder
     {
         const string ScenePath = PrototypeSceneBuilder.SceneFolder + "/PurpleMode.unity";
 
-        const float FieldRadius = 45f;
-        static readonly Vector3 FieldPosition = Vector3.zero;
-        // The point on the grass field's surface the house sits on - also doubles as the house's local floor origin.
-        static readonly Vector3 HouseFloor = new(0f, FieldRadius + 0.05f, 0f);
+        // A flat rectangular slab rather than a sphere, so it actually reads as a baseplate instead of a planet -
+        // wider and longer than the house that sits on it. GravityAttractor.planar makes "up" a fixed direction
+        // here instead of "away from the center", which is what makes a flat slab work as ground at all.
+        const float FieldWidth = 30f;
+        const float FieldLength = 80f;
+        const float FieldThickness = 2f;
+        static readonly Vector3 FieldPosition = new(0f, FieldThickness * 0.5f, 0f);
+        // The walkable surface - also the house's local floor origin.
+        static readonly Vector3 HouseFloor = new(0f, FieldThickness + 0.05f, 0f);
 
         const float HouseWidth = 10f;
         const float HouseDepth = 8f;
@@ -49,15 +54,16 @@ namespace OrangeWorld.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             PrototypeSceneBuilder.RegisterScene(ScenePath, isMenu: false);
             Selection.activeGameObject = player;
-            Debug.Log($"[Orange World] Built {ScenePath}. It's an empty stub (a house in a grass field) - build your game mode here.");
+            Debug.Log($"[Orange World] Built {ScenePath}. It's an empty stub (a furnished house on a grass field) - build your game mode here.");
         }
 
         static void BuildGrassField()
         {
             var mat = PrototypeSceneBuilder.Mat("PurpleModeGrass", new Color(0.16f, 0.5f, 0.12f), 0.1f);
-            var field = PrototypeSceneBuilder.Prim(PrimitiveType.Sphere, "Grass Field", null,
-                FieldPosition, Vector3.one * FieldRadius * 2f, mat);
-            field.AddComponent<GravityAttractor>();
+            var field = PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Grass Field", null,
+                FieldPosition, new Vector3(FieldWidth, FieldThickness, FieldLength), mat);
+            var attractor = field.AddComponent<GravityAttractor>();
+            attractor.planar = true;
         }
 
         // A boxy, low-poly house built from separate wall panels rather than a solid box with holes carved into
@@ -86,6 +92,8 @@ namespace OrangeWorld.EditorTools
                 new Vector3(WallThickness, HouseHeight, HouseDepth), wallMat);
             PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Right Wall", root, new Vector3(HouseWidth * 0.5f, HouseHeight * 0.5f, 0f),
                 new Vector3(WallThickness, HouseHeight, HouseDepth), wallMat);
+
+            BuildFurniture(root);
         }
 
         // Five square windows in a row plus a doorway on the right, all real gaps between wall panels.
@@ -116,6 +124,67 @@ namespace OrangeWorld.EditorTools
                 Vector3 position = new((x0 + x1) * 0.5f - HouseWidth * 0.5f, (y0 + y1) * 0.5f, z);
                 PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Front Wall Panel", root, position, size, mat);
             }
+        }
+
+        // A table with two chairs, and a bed against the back wall - just enough to make the inside of the
+        // house read as a room rather than an empty box.
+        static void BuildFurniture(Transform root)
+        {
+            var woodMat = PrototypeSceneBuilder.Mat("PurpleModeWood", new Color(0.4f, 0.24f, 0.12f), 0.2f);
+            var cushionMat = PrototypeSceneBuilder.Mat("PurpleModeCushion", new Color(0.5f, 0.15f, 0.15f), 0.3f);
+            var beddingMat = PrototypeSceneBuilder.Mat("PurpleModeBedding", new Color(0.22f, 0.32f, 0.55f), 0.3f);
+
+            BuildTable(root, new Vector3(-1.5f, 0f, 1f), woodMat);
+            BuildChair(root, new Vector3(-1.5f, 0f, 0f), 0f, woodMat, cushionMat);
+            BuildChair(root, new Vector3(-1.5f, 0f, 2f), 180f, woodMat, cushionMat);
+            BuildBed(root, new Vector3(2f, 0f, -3.2f), woodMat, beddingMat);
+        }
+
+        static void BuildTable(Transform root, Vector3 position, Material woodMat)
+        {
+            var table = new GameObject("Table").transform;
+            table.SetParent(root, false);
+            table.localPosition = position;
+
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Table Top", table, new Vector3(0f, 0.75f, 0f),
+                new Vector3(1.6f, 0.08f, 1.0f), woodMat);
+
+            Vector2[] legOffsets = { new(0.7f, 0.4f), new(-0.7f, 0.4f), new(0.7f, -0.4f), new(-0.7f, -0.4f) };
+            foreach (var offset in legOffsets)
+                PrototypeSceneBuilder.Prim(PrimitiveType.Cylinder, "Table Leg", table,
+                    new Vector3(offset.x, 0.35f, offset.y), new Vector3(0.05f, 0.35f, 0.05f), woodMat);
+        }
+
+        static void BuildChair(Transform root, Vector3 position, float yRotation, Material woodMat, Material cushionMat)
+        {
+            var chair = new GameObject("Chair").transform;
+            chair.SetParent(root, false);
+            chair.localPosition = position;
+            chair.localRotation = Quaternion.Euler(0f, yRotation, 0f);
+
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Seat", chair, new Vector3(0f, 0.45f, 0f),
+                new Vector3(0.5f, 0.08f, 0.5f), cushionMat);
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Backrest", chair, new Vector3(0f, 0.75f, -0.22f),
+                new Vector3(0.5f, 0.6f, 0.06f), woodMat);
+
+            Vector2[] legOffsets = { new(0.2f, 0.2f), new(-0.2f, 0.2f), new(0.2f, -0.2f), new(-0.2f, -0.2f) };
+            foreach (var offset in legOffsets)
+                PrototypeSceneBuilder.Prim(PrimitiveType.Cylinder, "Leg", chair,
+                    new Vector3(offset.x, 0.2f, offset.y), new Vector3(0.05f, 0.2f, 0.05f), woodMat);
+        }
+
+        static void BuildBed(Transform root, Vector3 position, Material woodMat, Material beddingMat)
+        {
+            var bed = new GameObject("Bed").transform;
+            bed.SetParent(root, false);
+            bed.localPosition = position;
+
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Frame", bed, new Vector3(0f, 0.2f, 0f),
+                new Vector3(3.0f, 0.4f, 1.4f), woodMat);
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Mattress", bed, new Vector3(0f, 0.5f, 0f),
+                new Vector3(2.8f, 0.2f, 1.2f), beddingMat);
+            PrototypeSceneBuilder.Prim(PrimitiveType.Cube, "Pillow", bed, new Vector3(-1.1f, 0.68f, 0f),
+                new Vector3(0.5f, 0.16f, 1.0f), beddingMat);
         }
 
         static void BuildBackButton(PrototypeSceneBuilder.Palette p)

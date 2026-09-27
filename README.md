@@ -10,7 +10,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | --- | --- |
 | **Floppy hands** | Your hands are physics bodies pulled toward your controllers by underdamped springs. They lag, overshoot and wobble, and noodle arms stretch from your shoulders to reach them. Heavy objects feel heavy because they drag your hands down. |
 | **Momentum combat** | Damage = (impact speed − threshold) × √mass. A gentle tap does nothing; you have to *swing*. Weapons, rocks, even thrown creatures all deal damage. |
-| **Planetoid gravity** | Every planetoid pulls with inverse-square falloff. Walk all the way around a planet, jump, or drift through zero-g between worlds. |
+| **Planetoid gravity** | Every planetoid pulls with inverse-square falloff. Walk all the way around a planet, jump, or drift through zero-g between worlds. `GravityAttractor` can also be set to `planar`, for a flat slab (like Purple Mode's field) that pulls straight down instead of toward a center point. |
 | **Climb & fling** | Grip on static scenery (trees, planets, crystals) to anchor your hand and pull yourself around, Gorilla Tag–style. Let go mid-pull to fling yourself. |
 | **Jump Shrooms** | Mushroom launch pads that fire you (or anything else) across to a neighboring planetoid. |
 | **Bloblings** | Jiggly, many-eyed blobs that hop toward you and lunge. When one dies it splits into two smaller blobs, until they're too small to split. Grab them and use them as weapons. |
@@ -29,7 +29,7 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Portals** | One pair of weird little rifts — a pulsing glowing core with a ring of jagged shards tumbling and orbiting around it at odd angles — sit near Home and Magenta Lump. Get close and they pull you (or a blob, rock, weapon, anything with physics) in with a swirling vortex force; get close enough and you're launched out of the other one. Just one pair, on purpose, so they're a fun surprise rather than replacing the Jump Shrooms as the main way to get around. |
 | **Main menu** | You load into a small platform with a punchable PLAY button, while a few blobs hop around you and distant planetoids drift by — the menu background is just the real game running quietly. Punch the button to start. |
 | **Sandbox** | A SANDBOX button next to PLAY drops you on a big, bare baseplate with no wave spawner or shop — just a row of punchable buttons that summon a normal/gunner/melee blob, a melee or gunner boss, or any of the four weapons, on demand, as many times as you like. A God Mode button makes you unkillable; a Back To Menu button returns you to the main menu, which also turns God Mode off since it's never saved anywhere. |
-| **Purple Mode** | A PURPLE MODE button loads a deliberately minimal stub scene: you spawn inside a boxy, low-poly PS1-style house — flat overhanging roof, five square window openings and a doorway you can actually walk through — sitting in a big grass field, with a way back to the main menu. No creatures, no rules; it's a blank canvas for a future game mode, not a finished feature. |
+| **Purple Mode** | A PURPLE MODE button loads a deliberately minimal stub scene: you spawn inside a furnished, boxy, low-poly PS1-style house — flat overhanging roof, five square window openings and a doorway you can actually walk through, a table and two chairs, a bed — sitting on a long rectangular grass field (a real flat baseplate, not another sphere), with a way back to the main menu. No creatures, no rules; it's a blank canvas for a future game mode, not a finished feature. |
 
 All the art is Unity primitives and procedural placeholder audio, so the prototype runs without any imported assets.
 
@@ -103,7 +103,7 @@ Assets/_Project/
   Scripts/
     Core/       PhysicsConfig (72 Hz physics), Haptics, Juice (procedural boing sound),
                 HudSprite (faded HUD bars), WorldText (world-space UI Text labels)
-    Gravity/    GravityAttractor (planetoid), GravityBody (anything that falls toward planetoids)
+    Gravity/    GravityAttractor (planetoid, or a flat `planar` slab), GravityBody (anything that falls toward one)
     Player/     PlanetWalker (locomotion + teleport), FloppyHand (spring hands), HandGrabber (grab/climb/fling),
                 ElasticArm (noodle arms), PlayerVitals (health feedback + health bar), PlayerUltimate
                 (charge/buff/HUD), PlayerBucks (currency + counter), PlayerLevel (XP + level bar),
@@ -264,8 +264,12 @@ Assets/_Project/
   list) rather than one solid slab with holes cut into it - real PS1-era levels were built the same way, out of
   flat panels arranged around openings, so the five windows and the doorway are actual gaps you can see through
   and walk through, not just a texture. The other three walls, the floor, and the flat overhanging roof are each
-  a single `Cube`. The grass field reuses the same giant-sphere-as-flat-ground trick every other planet in this
-  game uses (see the scaled-parent note above), just recolored and sized bigger for a wide-open feel.
+  a single `Cube`. `BuildFurniture` adds a table, two facing chairs, and a bed, each its own small helper
+  (`BuildTable`/`BuildChair`/`BuildBed`) built from a handful of `Cube`/`Cylinder` primitives.
+  The grass field is a genuine flat rectangular slab (a stretched `Cube`), not another giant sphere pretending to
+  be flat like every other planet in this game - it needed `GravityAttractor.planar` (see above) since the usual
+  "away from the center" up-vector only reads as flat near a sphere's pole, and would tilt increasingly sideways
+  toward the edges of a slab this size.
 
 ## Tuning cheat sheet
 
@@ -273,7 +277,7 @@ Assets/_Project/
 | --- | --- |
 | Hands floppier / stiffer | `FloppyHand.stiffness`, `damping` (on the Left/Right Hand objects) |
 | How hard you must swing | `ImpactDamager.minImpactSpeed`, `damagePerSpeed` |
-| Planet gravity strength / reach | `GravityAttractor.surfaceGravity`, `influenceRadii` |
+| Planet gravity strength / reach | `GravityAttractor.surfaceGravity`, `influenceRadii` (or `planarHeight` when `planar`) |
 | Enemy count and ramp | `WaveSpawner` in the scene |
 | Blobling aggression | `CreatureBrain` on `Prefabs/Blobling` |
 | How many blobs carry guns / clubs / fly / are armored | `WaveSpawner.gunnerChance`/`meleeChance`/`flyerChance`/`armoredChance` |
@@ -312,7 +316,8 @@ Assets/_Project/
 | Portal pull range/strength, suck distance, eject speed | `Portal.pullRadius`/`pullStrength`/`suckRadius`/`ejectSpeed`/`arrivalCooldown` |
 | Portal look (shard count, colors, spin speeds) | the `shardCount` loop and `Orbiter` setup in `PrototypeSceneBuilder.BuildPortal` |
 | Purple Mode house size, window/door layout, colors | `PurpleModeSceneBuilder.HouseWidth`/`HouseDepth`/`HouseHeight` and the `panels` list in `BuildFrontWall` (regenerate the scene after changing) |
-| Purple Mode grass field size | `PurpleModeSceneBuilder.FieldRadius` |
+| Purple Mode furniture layout | the positions passed to `BuildTable`/`BuildChair`/`BuildBed` in `BuildFurniture` |
+| Purple Mode grass field size | `PurpleModeSceneBuilder.FieldWidth`/`FieldLength`/`FieldThickness` |
 
 ## Comfort note
 

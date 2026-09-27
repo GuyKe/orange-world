@@ -9,8 +9,13 @@ namespace OrangeWorld
 
         [Tooltip("Acceleration at the surface, in m/s².")]
         public float surfaceGravity = 9.81f;
-        [Tooltip("Gravity reaches out to this many radii from the center, falling off with the inverse square.")]
+        [Tooltip("Gravity reaches out to this many radii from the center, falling off with the inverse square. Ignored when planar.")]
         public float influenceRadii = 3f;
+        [Tooltip("Treats this as a flat plane (up = this transform's up, pull is straight down everywhere) instead of a " +
+                 "sphere pulling toward its center - for a rectangular baseplate rather than a planetoid.")]
+        public bool planar;
+        [Tooltip("Only used when planar: how far above (or below) the surface gravity still applies before dropping to zero.")]
+        public float planarHeight = 40f;
 
         public float Radius { get; private set; }
 
@@ -20,13 +25,19 @@ namespace OrangeWorld
 
         public float GravityAt(Vector3 point)
         {
+            if (planar)
+            {
+                float height = Mathf.Abs(Vector3.Dot(point - transform.position, transform.up));
+                return height <= planarHeight ? surfaceGravity : 0f;
+            }
+
             float distance = Vector3.Distance(point, transform.position);
             if (distance > Radius * influenceRadii) return 0f;
             float r = Mathf.Max(distance, Radius);
             return surfaceGravity * Radius * Radius / (r * r);
         }
 
-        public Vector3 UpAt(Vector3 point) => (point - transform.position).normalized;
+        public Vector3 UpAt(Vector3 point) => planar ? transform.up : (point - transform.position).normalized;
 
         float ComputeRadius()
         {
@@ -39,7 +50,8 @@ namespace OrangeWorld
         void OnDrawGizmosSelected()
         {
             Gizmos.color = new Color(1f, 0.5f, 0.1f, 0.4f);
-            Gizmos.DrawWireSphere(transform.position, ComputeRadius() * influenceRadii);
+            if (planar) Gizmos.DrawWireCube(transform.position, new Vector3(ComputeRadius() * 2f, planarHeight * 2f, ComputeRadius() * 2f));
+            else Gizmos.DrawWireSphere(transform.position, ComputeRadius() * influenceRadii);
         }
     }
 }
