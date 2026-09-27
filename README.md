@@ -16,6 +16,8 @@ creatures with momentum-based melee combat. Nothing here is scripted: damage, kn
 | **Bloblings** | Jiggly, many-eyed blobs that hop toward you and lunge. When one dies it splits into two smaller blobs, until they're too small to split. Grab them and use them as weapons. |
 | **Gunner blobs** | About a fifth of spawned blobs carry a little gun and lob globs at you from range if they have line of sight. They still split and stretch-pop like any other blob. |
 | **Melee blobs** | About a fifth of spawned blobs carry a club and hit harder and lunge faster than a normal blobling — the brute of the three types. |
+| **Jellyfish** | A flying blob that hovers above the ground, drifts lazily, and dives at you when you get close before rising back up. No hopping, no chasing on foot — it's the only creature that occupies the air. |
+| **Armored blobs** | A tankier, slower blob wearing a hard shell: bare-handed punches bounce right off (a dull clunk, no damage). Swing a weapon, throw something at it, or grab it with both hands and stretch it to actually hurt it. |
 | **Stretch-kill** | Grab a blob with one hand to hold it steady; grab it with your other hand too and pull apart to stretch it. Stretch it far enough and it pops instantly (and splits, if it's still big enough to). |
 | **Weapons** | An eyeball flail on a chain of physics links, a squeaky mallet, a floppy boxing-glove bopper (light, low damage, huge knockback), and a yo-yo whose ball hangs from a spring instead of a rigid chain, so it stretches and snaps back unpredictably. |
 | **Everything watches you** | Eyes on stalks, eyes on creatures, and one very large eye in the sky. |
@@ -109,6 +111,7 @@ Assets/_Project/
                 Projectile
     Creatures/  CreatureBrain (hop/chase/lunge AI), Jiggle (squash & stretch), SplitOnDeath,
                 Stretchable (two-handed stretch-to-pop), BlobGun (ranged blobs), MeleeBlob (marker),
+                Flyer (hover/drift/dive flight AI), ArmoredHide (blocks bare-hand damage),
                 WaveSpawner, RandomTint, BossHealthBar, BossSpecialAttack, BossReward,
                 BossConfig (turns an instance into a boss at runtime)
     World/      JumpPad, Portal (sucks you in, spits you out its linked partner), LookAtCamera, Orbiter,
@@ -141,6 +144,20 @@ Assets/_Project/
   with a club (`PrototypeSceneBuilder.AddClub`) and higher `CreatureBrain.contactDamage`/`lungeSpeed`, plus an empty
   `MeleeBlob` marker component other systems (`PlayerBucks`, `PlayerLevel`) check for the same way they check for
   `BlobGun` on a gunner.
+- **Jellyfish (flying blobs):** `WaveSpawner` extends the same weighted roll with `flyerChance`. `Flyer` replaces
+  `CreatureBrain` entirely rather than adding a flight mode to it, since hopping/grounded logic doesn't apply -
+  it zeroes its own `GravityBody.gravityScale` (so it isn't pulled down) and instead holds itself at `hoverHeight`
+  above the nearest planet's surface, dropping to `diveHeight` and closing in when the player is within
+  `diveRange`. Because `Flyer` doesn't carry a `CreatureBrain`, it keeps its own static registry (`Flyer.All`)
+  that `WaveSpawner`'s population cap sums alongside `CreatureBrain.All` - otherwise flyers would spawn forever,
+  invisible to the cap. Velocity is blended toward its target each `FixedUpdate` (not hard-set), so a knockback
+  hit or a split's scatter kick still shows for a moment instead of vanishing instantly.
+- **Armored blobs:** `ArmoredHide` is a one-method marker (`Blocks(GameObject source)`) that `ImpactDamager` checks
+  before applying damage - if the colliding object carries a `HandGrabber` (i.e. it's a bare hand), the hit is
+  blocked with just a dull `Juice.Boing`, no damage and no knockback. Anything else - a swung weapon, a thrown
+  rock, another creature - has no `HandGrabber` and gets through normally. `Stretchable`'s stretch-kill bypasses
+  this entirely (it calls `Damageable.Kill` directly), so grabbing an armored blob with both hands and pulling it
+  apart is a deliberate alternate way past the shell.
 - **Weapons:** the flail and mallet are rigid (a `ConfigurableJoint` chain and a single body); the bopper is just a
   lighter, higher-`knockback` mallet variant. The yo-yo instead connects its ball to its handle with a `SpringJoint`
   (`spring`/`damper`/`minDistance`/`maxDistance`), so it genuinely stretches under load and snaps back, unlike the
@@ -245,7 +262,9 @@ Assets/_Project/
 | Planet gravity strength / reach | `GravityAttractor.surfaceGravity`, `influenceRadii` |
 | Enemy count and ramp | `WaveSpawner` in the scene |
 | Blobling aggression | `CreatureBrain` on `Prefabs/Blobling` |
-| How many blobs carry guns / clubs | `WaveSpawner.gunnerChance` / `meleeChance` |
+| How many blobs carry guns / clubs / fly / are armored | `WaveSpawner.gunnerChance`/`meleeChance`/`flyerChance`/`armoredChance` |
+| Jellyfish hover height, dive range/speed | `Flyer.hoverHeight`/`diveHeight`/`diveRange`/`diveSpeed`/`noticeRange` |
+| Armored blob toughness / how slow it is | `Damageable.maxHealth`, `CreatureBrain.hopSpeed`/`lungeSpeed` on `Prefabs/ArmoredBlobling` |
 | Gunner range, fire rate, damage | `BlobGun` on `Prefabs/GunnerBlobling` |
 | Melee blob damage and lunge speed | `CreatureBrain.contactDamage`/`lungeSpeed` on `Prefabs/MeleeBlobling` |
 | How far a blob stretches before it pops | `Stretchable.snapLength` (rest size is `restLength`) |
@@ -288,8 +307,8 @@ fade instead of rotate when gravity switches, and a seated mode.
 
 1. **Full floppy avatar.** Give the protagonist an active-ragdoll body you can see in mirrors, in shadows and when you
    look down, with legs that flail during flings.
-2. **More creature types.** Candidates: a flying jellyfish that drops from above, a planet-sized worm, and a creature
-   that only takes damage from thrown objects.
+2. **More creature types.** The jellyfish (flying) and armored blob (bare-hand-proof) are in; a planet-sized worm
+   that burrows in and out of a planetoid's surface would be a good next one.
 3. **RPG layer.** Stretch upgrades such as longer arms, heavier fists and stickier grip, dropped by creatures, plus a
    hub planetoid.
 4. **Real art and audio.** Replace the primitives and procedural boings, and budget draw calls for Quest (aim for fewer

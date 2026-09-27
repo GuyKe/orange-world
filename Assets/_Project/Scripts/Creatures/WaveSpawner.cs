@@ -8,8 +8,12 @@ namespace OrangeWorld
         public GameObject creaturePrefab;
         public GameObject gunnerPrefab;
         public GameObject meleePrefab;
+        public GameObject flyerPrefab;
+        public GameObject armoredPrefab;
         [Range(0f, 1f)] public float gunnerChance = 0.2f;
         [Range(0f, 1f)] public float meleeChance = 0.2f;
+        [Range(0f, 1f)] public float flyerChance = 0.15f;
+        [Range(0f, 1f)] public float armoredChance = 0.15f;
         public int startingCount = 8;
         public int maxCount = 30;
         public float secondsPerExtraCreature = 15f;
@@ -26,7 +30,9 @@ namespace OrangeWorld
         void Update()
         {
             int target = Mathf.Min(maxCount, startingCount + Mathf.FloorToInt(Time.timeSinceLevelLoad / secondsPerExtraCreature));
-            if (CreatureBrain.All.Count >= target || Time.time < nextSpawn) return;
+            // Flyer doesn't carry a CreatureBrain, so it keeps its own registry - both need counting for the cap
+            // to reflect everything actually alive.
+            if (CreatureBrain.All.Count + Flyer.All.Count >= target || Time.time < nextSpawn) return;
             nextSpawn = Time.time + spawnInterval;
             TrySpawn();
         }
@@ -37,9 +43,16 @@ namespace OrangeWorld
             if (planets.Count == 0 || creaturePrefab == null) return;
 
             float roll = Random.value;
+            float gunnerCut = gunnerChance;
+            float meleeCut = gunnerCut + meleeChance;
+            float flyerCut = meleeCut + flyerChance;
+            float armoredCut = flyerCut + armoredChance;
+
             GameObject prefab;
-            if (roll < gunnerChance && gunnerPrefab != null) prefab = gunnerPrefab;
-            else if (roll < gunnerChance + meleeChance && meleePrefab != null) prefab = meleePrefab;
+            if (roll < gunnerCut && gunnerPrefab != null) prefab = gunnerPrefab;
+            else if (roll < meleeCut && meleePrefab != null) prefab = meleePrefab;
+            else if (roll < flyerCut && flyerPrefab != null) prefab = flyerPrefab;
+            else if (roll < armoredCut && armoredPrefab != null) prefab = armoredPrefab;
             else prefab = creaturePrefab;
 
             for (int attempt = 0; attempt < 6; attempt++)

@@ -87,6 +87,8 @@ namespace OrangeWorld.EditorTools
             var meleeBlobling = BuildMeleeBloblingPrefab(palette, bouncy);
             var meleeBossPrefab = BuildMeleeBossPrefab(palette, bouncy);
             var gunnerBossPrefab = BuildGunnerBossPrefab(palette, bouncy, projectile);
+            var armoredBlobling = BuildArmoredBloblingPrefab(palette, bouncy);
+            var jellyfishBlobling = BuildJellyfishPrefab(palette, bouncy);
             var flailPrefab = BuildFlailPrefab(palette);
             var malletPrefab = BuildMalletPrefab(palette);
             var bopperPrefab = BuildBopperPrefab(palette);
@@ -111,6 +113,8 @@ namespace OrangeWorld.EditorTools
             spawner.creaturePrefab = blobling;
             spawner.gunnerPrefab = gunnerBlobling;
             spawner.meleePrefab = meleeBlobling;
+            spawner.flyerPrefab = jellyfishBlobling;
+            spawner.armoredPrefab = armoredBlobling;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             RegisterScene(ScenePath, isMenu: false);
@@ -337,6 +341,79 @@ namespace OrangeWorld.EditorTools
             Prim(PrimitiveType.Cylinder, "Club Handle", arm, new Vector3(0f, 0f, 0.18f), new Vector3(0.06f, 0.18f, 0.06f), p.Stalk, collider: false)
                 .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             Prim(PrimitiveType.Sphere, "Club Head", arm, new Vector3(0f, 0f, 0.4f), Vector3.one * 0.24f, p.Metal, collider: false);
+        }
+
+        // A tankier, slower blob wearing a hard shell: ArmoredHide makes ImpactDamager ignore a bare hand hitting
+        // it, so you need to swing a weapon, throw something, or grab-and-stretch it instead of just punching.
+        internal static GameObject BuildArmoredBloblingPrefab(Palette p, PhysicsMaterial bouncy)
+        {
+            var go = CreateBloblingBase("Armored Blobling", p, bouncy);
+            AddShell(go, p);
+            go.AddComponent<ArmoredHide>();
+
+            var brain = go.GetComponent<CreatureBrain>();
+            brain.hopSpeed = 2f;
+            brain.lungeSpeed = 4f;
+            brain.contactDamage = 10f;
+            go.GetComponent<Damageable>().maxHealth = 60f;
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/ArmoredBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static void AddShell(GameObject go, Palette p)
+        {
+            var visual = go.transform.Find("Visual");
+            Prim(PrimitiveType.Sphere, "Shell", visual, new Vector3(0f, 0.22f, -0.15f), new Vector3(0.8f, 0.5f, 0.8f), p.Rock, collider: false);
+        }
+
+        // A flying blob with no CreatureBrain at all - Flyer replaces the usual hop/chase/lunge with hovering,
+        // drifting, and diving. Tentacles hang from a flattened dome instead of the usual round body.
+        internal static GameObject BuildJellyfishPrefab(Palette p, PhysicsMaterial bouncy)
+        {
+            var go = new GameObject("Jellyfish Blobling");
+            var body = go.AddComponent<Rigidbody>();
+            body.mass = 2f;
+            body.angularDamping = 2f;
+            body.linearDamping = 0.5f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            var collider = go.AddComponent<SphereCollider>();
+            collider.radius = 0.45f;
+            collider.sharedMaterial = bouncy;
+            go.AddComponent<GravityBody>();
+
+            var visual = new GameObject("Visual").transform;
+            visual.SetParent(go.transform, false);
+            var dome = Prim(PrimitiveType.Sphere, "Body", visual, Vector3.zero, new Vector3(1f, 0.6f, 1f), p.Blob, collider: false);
+            Eye(visual, new Vector3(-0.16f, 0.12f, 0.36f), 0.22f, p.Candy[1], p);
+            Eye(visual, new Vector3(0.18f, 0.15f, 0.34f), 0.2f, p.Candy[2], p);
+
+            Vector2[] tentacleSpread = { new(-0.25f, 0.15f), new(0.25f, 0.15f), new(0f, -0.28f), new(-0.15f, -0.2f) };
+            foreach (var spread in tentacleSpread)
+                Prim(PrimitiveType.Capsule, "Tentacle", visual, new Vector3(spread.x, -0.45f, spread.y),
+                    new Vector3(0.07f, 0.3f, 0.07f), Pick(p.Candy), collider: false);
+
+            go.AddComponent<Damageable>().maxHealth = 22f;
+            var damager = go.AddComponent<ImpactDamager>();
+            damager.minImpactSpeed = 5f;
+            damager.damagePerSpeed = 2f;
+            damager.knockback = 0.15f;
+
+            go.AddComponent<Flyer>();
+            var jiggle = go.AddComponent<Jiggle>();
+            jiggle.visual = visual;
+            go.AddComponent<SplitOnDeath>().pieces = 2;
+            go.AddComponent<RandomTint>().targets = new[] { dome.GetComponent<Renderer>() };
+
+            var stretch = go.AddComponent<Stretchable>();
+            stretch.visual = visual;
+            stretch.restLength = 0.8f;
+            stretch.snapLength = 2f;
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabFolder + "/JellyfishBlobling.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
         }
 
         internal static GameObject BuildProjectilePrefab(Palette p)

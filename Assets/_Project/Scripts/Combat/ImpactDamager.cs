@@ -45,6 +45,13 @@ namespace OrangeWorld
             var target = collision.collider.GetComponentInParent<Damageable>();
             if (target == null || target.isPlayer || target == self) return;
 
+            var armor = target.GetComponent<ArmoredHide>();
+            if (armor != null && armor.Blocks(gameObject))
+            {
+                Juice.Boing(point, 0.2f); // a dull clunk - the hit didn't get through
+                return;
+            }
+
             float damage = (speed - minImpactSpeed) * damagePerSpeed * Mathf.Sqrt(body.mass) * GlobalDamageMultiplier;
             target.TakeDamage(damage, point);
             Juice.Boing(point, Mathf.InverseLerp(minImpactSpeed, minImpactSpeed * 5f, speed));
